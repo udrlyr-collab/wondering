@@ -47,26 +47,32 @@ const isAdminMode =
   hostname.startsWith("admin.") || (isLocalHost && new URLSearchParams(window.location.search).get("admin") === "1");
 const adminSessionStorageKey = "wonderingAdminSession";
 const MAP_COLORS = {
-  paper: "#f7f6f1",
-  paperDeep: "#e4e1d8",
-  park: "#e4eddf",
-  woodland: "#d5e7d3",
-  residential: "#f3eadb",
-  aeroway: "#ece6dc",
-  water: "#d8e9ef",
-  waterLine: "#8cc7d8",
-  road: "#ffffff",
-  roadCasing: "#181818",
-  roadMajor: "#fff4c7",
-  roadMotorway: "#f5d9b4",
-  rail: "#5f5b54",
-  transit: "#9b8fc0",
-  label: "#111111",
-  mutedLabel: "#4f4b45",
+  paper: "#EAEBE6",
+  paperDeep: "#D9E0DC",
+  park: "#CFDCDA",
+  woodland: "#C6D4CF",
+  residential: "#F2E9DA",
+  aeroway: "#E6DDD0",
+  water: "#B4E4EA",
+  waterLine: "#8ACBD3",
+  road: "#FAFBF6",
+  roadCasing: "#C9D2CF",
+  roadMajor: "#FCD2A4",
+  roadMajorCasing: "#E9BE8E",
+  roadMotorway: "#FCD2A4",
+  roadMotorwayCasing: "#E9BE8E",
+  rail: "#B7C7C6",
+  transit: "#9EB7BA",
+  buildingShadow: "#C0CCC8",
+  buildingFill: "#F9FCF2",
+  buildingSide: "#DCE2DA",
+  buildingTall: "#C9D2CF",
+  label: "#4A4F52",
+  mutedLabel: "#7E8986",
   route: "#101010",
   routeHalo: "#ffffff",
   routeAccent: "#0877ff",
-  invalid: "#6e6e68",
+  invalid: "#7B8581",
 };
 
 let pollTimer = null;
@@ -415,36 +421,53 @@ function setLayout(layerId, property, value) {
 
 function applyWonderingMapTheme() {
   const layers = map.getStyle()?.layers || [];
-  if (mapEl) mapEl.dataset.mapTheme = "bright-color-ink";
+  if (mapEl) mapEl.dataset.mapTheme = "mini-3d-light";
   setPaint("background", "background-color", MAP_COLORS.paper);
   setPaint("water", "fill-color", MAP_COLORS.water);
-  setPaint("water", "fill-opacity", 0.94);
+  setPaint("water", "fill-opacity", 0.98);
   setPaint("waterway", "line-color", MAP_COLORS.waterLine);
-  setPaint("waterway", "line-opacity", 0.72);
+  setPaint("waterway", "line-opacity", 0.82);
   setPaint("park", "fill-color", MAP_COLORS.park);
-  setPaint("park", "fill-opacity", 0.84);
+  setPaint("park", "fill-opacity", 0.92);
   setPaint("landcover_wood", "fill-color", MAP_COLORS.woodland);
-  setPaint("landcover_wood", "fill-opacity", 0.78);
+  setPaint("landcover_wood", "fill-opacity", 0.88);
   setPaint("landuse_residential", "fill-color", MAP_COLORS.residential);
-  setPaint("landuse_residential", "fill-opacity", 0.56);
+  setPaint("landuse_residential", "fill-opacity", 0.62);
   setPaint("aeroway-area", "fill-color", MAP_COLORS.aeroway);
   setPaint("aeroway-area", "fill-opacity", 0.62);
+
+  setPaint("highway_path", "line-color", MAP_COLORS.roadCasing);
+  setPaint("highway_path", "line-opacity", 0.8);
+  setPaint("highway_minor", "line-color", MAP_COLORS.road);
+  setPaint("highway_minor", "line-opacity", 0.94);
+  setPaint("road_pier", "line-color", MAP_COLORS.road);
+  setPaint("road_area_pier", "fill-color", MAP_COLORS.road);
+  setPaint("highway_major_casing", "line-color", MAP_COLORS.roadCasing);
+  setPaint("highway_major_casing", "line-opacity", 1);
   setPaint("highway_major_inner", "line-color", MAP_COLORS.roadMajor);
   setPaint("highway_major_inner", "line-opacity", 0.96);
   setPaint("highway_major_subtle", "line-color", MAP_COLORS.roadMajor);
-  setPaint("highway_major_subtle", "line-opacity", 0.48);
+  setPaint("highway_major_subtle", "line-opacity", 0.42);
+  setPaint("highway_motorway_casing", "line-color", MAP_COLORS.roadMotorwayCasing);
+  setPaint("highway_motorway_casing", "line-opacity", 1);
   setPaint("highway_motorway_inner", "line-color", MAP_COLORS.roadMotorway);
   setPaint("highway_motorway_inner", "line-opacity", 0.96);
   setPaint("highway_motorway_subtle", "line-color", MAP_COLORS.roadMotorway);
   setPaint("highway_motorway_subtle", "line-opacity", 0.44);
+  setPaint("highway_motorway_bridge_casing", "line-color", MAP_COLORS.roadMotorwayCasing);
+  setPaint("highway_motorway_bridge_inner", "line-color", MAP_COLORS.roadMotorway);
+  setPaint("tunnel_motorway_casing", "line-color", MAP_COLORS.roadMotorwayCasing);
   setPaint("tunnel_motorway_inner", "line-color", MAP_COLORS.roadMotorway);
   setPaint("railway", "line-color", MAP_COLORS.rail);
+  setPaint("railway_dashline", "line-color", MAP_COLORS.rail);
+  setPaint("railway_service", "line-color", MAP_COLORS.rail);
+  setPaint("railway_service_dashline", "line-color", MAP_COLORS.rail);
   setPaint("railway_transit", "line-color", MAP_COLORS.transit);
   setPaint("railway_transit_dashline", "line-color", MAP_COLORS.transit);
-  setPaint("boundary_2", "line-color", "#8f8a80");
-  setPaint("boundary_2", "line-opacity", 0.5);
-  setPaint("boundary_3", "line-color", "#aaa49a");
-  setPaint("boundary_3", "line-opacity", 0.42);
+  setPaint("boundary_2", "line-color", "#AAB5B1");
+  setPaint("boundary_2", "line-opacity", 0.34);
+  setPaint("boundary_3", "line-color", "#B8C1BD");
+  setPaint("boundary_3", "line-opacity", 0.3);
 
   layers.forEach((layer) => {
     const id = layer.id;
@@ -500,6 +523,7 @@ function updateMapDiagnostics() {
   mapEl.dataset.pitch = String(Math.round(map.getPitch()));
   mapEl.dataset.bearing = String(Math.round(map.getBearing()));
   mapEl.dataset.zoom = map.getZoom().toFixed(1);
+  mapEl.dataset.hasBuildingShadow = String(Boolean(map.getLayer("wondering-building-shadow")));
   mapEl.dataset.has3dBuildings = String(Boolean(map.getLayer("wondering-3d-buildings")));
   mapEl.dataset.hasRouteLayers = String(
     ["route-halo", "route-line", "route-direction", "accuracy-fill", "invalid-points"].every((id) =>
@@ -522,6 +546,35 @@ function setupMapLayers() {
   const firstSymbolLayer = map.getStyle().layers.find((layer) => layer.type === "symbol");
   const beforeId = firstSymbolLayer ? firstSymbolLayer.id : undefined;
 
+  if (map.getSource("openmaptiles") && !map.getLayer("wondering-building-shadow")) {
+    map.addLayer(
+      {
+        id: "wondering-building-shadow",
+        source: "openmaptiles",
+        "source-layer": "building",
+        type: "fill",
+        minzoom: 14,
+        paint: {
+          "fill-color": MAP_COLORS.buildingShadow,
+          "fill-opacity": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            14,
+            0,
+            15,
+            0.38,
+            17,
+            0.48,
+          ],
+          "fill-translate": [2.5, 2.5],
+          "fill-translate-anchor": "viewport",
+        },
+      },
+      beforeId
+    );
+  }
+
   if (map.getSource("openmaptiles") && !map.getLayer("wondering-3d-buildings")) {
     map.addLayer(
       {
@@ -536,11 +589,11 @@ function setupMapLayers() {
             ["linear"],
             ["to-number", ["get", "render_height"], ["to-number", ["get", "height"], 12]],
             0,
-            "#c7c5bc",
+            MAP_COLORS.buildingFill,
             80,
-            "#aaa8a0",
+            MAP_COLORS.buildingSide,
             180,
-            "#7d7d78",
+            MAP_COLORS.buildingTall,
           ],
           "fill-extrusion-height": [
             "interpolate",
@@ -556,7 +609,7 @@ function setupMapLayers() {
             ["get", "render_min_height"],
             ["to-number", ["get", "min_height"], 0],
           ],
-          "fill-extrusion-opacity": 0.88,
+          "fill-extrusion-opacity": 0.94,
           "fill-extrusion-vertical-gradient": true,
         },
       },
