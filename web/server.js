@@ -63,6 +63,16 @@ function activeToken() {
   return savedToken || envToken;
 }
 
+function adminPayload(payload = {}) {
+  const uploadToken = activeToken();
+  return {
+    ...payload,
+    settings: publicSettings(),
+    uploadToken,
+    tokenRequired: Boolean(uploadToken),
+  };
+}
+
 function bearerToken(req) {
   const header = req.headers.authorization || "";
   return header.startsWith("Bearer ") ? header.slice(7).trim() : "";
@@ -392,7 +402,7 @@ async function handleApi(req, res, url) {
         return;
       }
       const session = createAdminSession();
-      sendJson(res, 200, { ok: true, ...session, settings: publicSettings() });
+      sendJson(res, 200, adminPayload({ ok: true, ...session }));
     } catch {
       sendJson(res, 400, { error: "invalid json" });
     }
@@ -401,7 +411,7 @@ async function handleApi(req, res, url) {
 
   if (req.method === "GET" && url.pathname === "/api/admin/session") {
     if (!assertAdminAuthorized(req, res)) return;
-    sendJson(res, 200, { ok: true, settings: publicSettings() });
+    sendJson(res, 200, adminPayload({ ok: true }));
     return;
   }
 
@@ -466,7 +476,7 @@ async function handleApi(req, res, url) {
         return;
       }
       writeJsonFile(authFile, { locationShareToken: nextToken, updatedAt: Date.now() });
-      sendJson(res, 200, { ok: true, tokenRequired: true });
+      sendJson(res, 200, adminPayload({ ok: true }));
     } catch {
       sendJson(res, 400, { error: "invalid json" });
     }

@@ -15,6 +15,7 @@ const publicPollSelect = document.querySelector("#publicPollSelect");
 const publicMaxRecordsInput = document.querySelector("#publicMaxRecordsInput");
 const publicInvalidInput = document.querySelector("#publicInvalidInput");
 const newTokenInput = document.querySelector("#newTokenInput");
+const copyTokenButton = document.querySelector("#copyTokenButton");
 const adminFeedbackEl = document.querySelector("#adminFeedback");
 const mapInstructionEl = document.querySelector("#mapInstruction");
 const mapSubStatusEl = document.querySelector("#mapSubStatus");
@@ -105,6 +106,7 @@ setAdminUnlocked(false);
 pinFormEl?.addEventListener("submit", loginAdmin);
 document.querySelector("#lockAdminButton")?.addEventListener("click", lockAdmin);
 document.querySelector("#saveSettingsButton")?.addEventListener("click", saveAdminSettings);
+copyTokenButton?.addEventListener("click", copyUploadToken);
 document.querySelector("#generateTokenButton")?.addEventListener("click", generateUploadToken);
 document.querySelector("#rotateTokenButton")?.addEventListener("click", rotateUploadToken);
 locateCurrentButton?.addEventListener("click", focusTrackedLocation);
@@ -163,6 +165,17 @@ function applySettingsToForm() {
   if (publicInvalidInput) publicInvalidInput.checked = Boolean(appSettings.publicShowInvalidPoints);
 }
 
+function applyUploadToken(token) {
+  if (newTokenInput) newTokenInput.value = token || "";
+  if (copyTokenButton) copyTokenButton.disabled = !token;
+}
+
+function applyAdminData(data) {
+  appSettings = normalizeSettings(data.settings);
+  applySettingsToForm();
+  applyUploadToken(typeof data.uploadToken === "string" ? data.uploadToken : "");
+}
+
 function selectedLimit() {
   if (isAdminMode) return MAX_RECORDS;
   return Math.min(MAX_RECORDS, Number(appSettings.publicMaxRecords) || DEFAULT_SETTINGS.publicMaxRecords);
@@ -218,8 +231,7 @@ async function verifyAdminSession() {
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    appSettings = normalizeSettings(data.settings);
-    applySettingsToForm();
+    applyAdminData(data);
     setAdminUnlocked(true);
     adminMessage("Admin unlocked.");
   } catch {
@@ -255,8 +267,7 @@ async function loginAdmin(event) {
     const data = await res.json();
     sessionStorage.setItem(adminSessionStorageKey, data.sessionToken);
     if (pinInput) pinInput.value = "";
-    appSettings = normalizeSettings(data.settings);
-    applySettingsToForm();
+    applyAdminData(data);
     setAdminUnlocked(true);
     adminMessage("Admin unlocked.");
     loadLocations({ keepViewport: true });
@@ -269,6 +280,7 @@ function lockAdmin(message = "Admin locked.") {
   if (!isAdminMode) return;
   sessionStorage.removeItem(adminSessionStorageKey);
   setAdminUnlocked(false);
+  applyUploadToken("");
   pinMessage(message);
   adminMessage("");
 }
@@ -308,7 +320,24 @@ function generateUploadToken() {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
   newTokenInput.value = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  adminMessage("Generated a new token. Rotate to activate it.");
+  if (copyTokenButton) copyTokenButton.disabled = false;
+  adminMessage("Generated a new candidate token. Press Rotate token to activate it.");
+}
+
+async function copyUploadToken() {
+  if (!isAdminMode) return;
+  const token = (newTokenInput?.value || "").trim();
+  if (!token) {
+    adminMessage("No upload token to copy.");
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(token);
+    adminMessage("Upload token copied.");
+  } catch {
+    adminMessage("Copy failed. Select the token field and copy it manually.");
+  }
 }
 
 async function rotateUploadToken() {
@@ -330,6 +359,8 @@ async function rotateUploadToken() {
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    applyUploadToken(typeof data.uploadToken === "string" ? data.uploadToken : nextToken);
     adminMessage("Upload token rotated. Copy this token to the Android app.");
   } catch {
     adminMessage("Failed to rotate token.");

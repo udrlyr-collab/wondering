@@ -28,6 +28,8 @@
 - Public API reads may power the read-only viewer.
 - `LOCATION_SHARE_TOKEN` or the rotated stored token must protect uploads and administrator mutations.
 - Do not expose token entry, token rotation, or admin settings on the public viewer host.
+- The authenticated admin page may show the active upload token so the administrator can copy it into the Android app.
+- Admin controls must use short helper text when a section name is ambiguous.
 - Administrator access uses a server-side PIN session; do not use the Android upload token as the admin login credential.
 - Administrator token generation must use browser cryptographic randomness and must not activate until the admin rotates the token.
 
