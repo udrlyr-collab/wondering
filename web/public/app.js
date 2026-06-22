@@ -26,10 +26,17 @@ const MAP_COLORS = {
   paper: "#f7f6f1",
   paperDeep: "#e4e1d8",
   park: "#e4eddf",
+  woodland: "#d5e7d3",
+  residential: "#f3eadb",
+  aeroway: "#ece6dc",
   water: "#d8e9ef",
+  waterLine: "#8cc7d8",
   road: "#ffffff",
   roadCasing: "#181818",
+  roadMajor: "#fff4c7",
+  roadMotorway: "#f5d9b4",
   rail: "#5f5b54",
+  transit: "#9b8fc0",
   label: "#111111",
   mutedLabel: "#4f4b45",
   route: "#101010",
@@ -141,8 +148,36 @@ function setLayout(layerId, property, value) {
 
 function applyWonderingMapTheme() {
   const layers = map.getStyle()?.layers || [];
-  if (mapEl) mapEl.dataset.mapTheme = "bright-paper-ink";
+  if (mapEl) mapEl.dataset.mapTheme = "bright-color-ink";
   setPaint("background", "background-color", MAP_COLORS.paper);
+  setPaint("water", "fill-color", MAP_COLORS.water);
+  setPaint("water", "fill-opacity", 0.94);
+  setPaint("waterway", "line-color", MAP_COLORS.waterLine);
+  setPaint("waterway", "line-opacity", 0.72);
+  setPaint("park", "fill-color", MAP_COLORS.park);
+  setPaint("park", "fill-opacity", 0.84);
+  setPaint("landcover_wood", "fill-color", MAP_COLORS.woodland);
+  setPaint("landcover_wood", "fill-opacity", 0.78);
+  setPaint("landuse_residential", "fill-color", MAP_COLORS.residential);
+  setPaint("landuse_residential", "fill-opacity", 0.56);
+  setPaint("aeroway-area", "fill-color", MAP_COLORS.aeroway);
+  setPaint("aeroway-area", "fill-opacity", 0.62);
+  setPaint("highway_major_inner", "line-color", MAP_COLORS.roadMajor);
+  setPaint("highway_major_inner", "line-opacity", 0.96);
+  setPaint("highway_major_subtle", "line-color", MAP_COLORS.roadMajor);
+  setPaint("highway_major_subtle", "line-opacity", 0.48);
+  setPaint("highway_motorway_inner", "line-color", MAP_COLORS.roadMotorway);
+  setPaint("highway_motorway_inner", "line-opacity", 0.96);
+  setPaint("highway_motorway_subtle", "line-color", MAP_COLORS.roadMotorway);
+  setPaint("highway_motorway_subtle", "line-opacity", 0.44);
+  setPaint("tunnel_motorway_inner", "line-color", MAP_COLORS.roadMotorway);
+  setPaint("railway", "line-color", MAP_COLORS.rail);
+  setPaint("railway_transit", "line-color", MAP_COLORS.transit);
+  setPaint("railway_transit_dashline", "line-color", MAP_COLORS.transit);
+  setPaint("boundary_2", "line-color", "#8f8a80");
+  setPaint("boundary_2", "line-opacity", 0.5);
+  setPaint("boundary_3", "line-color", "#aaa49a");
+  setPaint("boundary_3", "line-opacity", 0.42);
 
   layers.forEach((layer) => {
     const id = layer.id;

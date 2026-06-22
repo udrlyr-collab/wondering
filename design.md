@@ -49,6 +49,7 @@
 - Use a 3D navigation-map visual direction backed by MapLibre GL.
 - The base palette must be warm off-white, black, restrained gray, and one functional blue route accent.
 - Recolor the base map into a bright paper/ink operational style: light land, quiet water, white roads, clearly separated gray casings, restrained labels.
+- Use restrained map color diversity for geographic readability: blue water, green parks/woodland, warm residential areas, subtle warm arterial roads, and muted transit lines.
 - 3D buildings must support depth without becoming decorative; use light neutral gray extrusion, not saturated or heavy dark color.
 - Use pitch, bearing, and building extrusion to create depth.
 - Use strong operational typography for last received time, coordinate, and distance.
