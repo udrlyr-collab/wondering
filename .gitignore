@@ -18,6 +18,9 @@ local.properties
 web/data/
 web/.env
 
+# Local deployment secrets
+ssh/
+
 # Local verification artifacts
 .playwright-cli/
 output/
