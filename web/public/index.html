@@ -5,95 +5,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Wondering Location</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="dashboard">
-      <aside class="rail" aria-label="Wondering">
-        <span>WONDERING</span>
-        <strong id="monthLabel">LIVE</strong>
-      </aside>
-
-      <section class="controlBoard" aria-label="위치 관제 패널">
-        <header class="boardHeader">
-          <div>
-            <span class="eyebrow">Location Control</span>
-            <h1>Wondering</h1>
-          </div>
-          <div class="dateBadge" aria-label="기록 날짜">
-            <span id="weekdayLabel">NOW</span>
-            <strong id="heroDay">--</strong>
-            <span id="miniDay">-</span>
-          </div>
-        </header>
-
-        <section class="fixBlock" aria-label="최근 위치">
-          <span class="blockLabel">LAST FIX</span>
-          <strong id="lastSeen">--:--</strong>
-          <p id="status">연결 대기</p>
-        </section>
-
-        <section class="coordinateBlock" aria-label="현재 좌표">
-          <span>COORDINATES</span>
-          <strong id="coords">좌표 대기</strong>
-        </section>
-
-        <section class="ledger" aria-label="위치 기록 요약">
-          <div>
-            <span>TRAVEL</span>
-            <strong id="distance">0 m</strong>
-          </div>
-          <div>
-            <span>POINTS</span>
-            <strong id="pointCount">0 / 0</strong>
-          </div>
-        </section>
-
-        <section class="controls" aria-label="설정">
-          <label>
-            <span>토큰</span>
-            <input id="tokenInput" type="password" autocomplete="off" placeholder="관리자 토큰" />
-          </label>
-          <label>
-            <span>날짜</span>
-            <input id="dateInput" type="date" />
-          </label>
-          <label>
-            <span>갱신</span>
-            <select id="pollSelect">
-              <option value="5000">5초</option>
-              <option value="10000" selected>10초</option>
-              <option value="30000">30초</option>
-            </select>
-          </label>
-          <div class="actions">
-            <button id="saveTokenButton" type="button">저장</button>
-            <button id="refreshButton" type="button">새로고침</button>
-          </div>
-        </section>
-      </section>
-
-      <section class="mapStage" aria-label="이동 경로 지도">
-        <header class="mapHeader">
-          <div>
-            <span>FILTERED GPS TRACE</span>
-            <strong>FIELD MAP</strong>
-          </div>
-          <p id="mapCaption">새 위치 수신 대기 중</p>
-        </header>
-        <div class="mapShell">
-          <div id="map"></div>
+      <div class="map-container">
+        <div id="map"></div>
+        <div class="map-status-card" aria-label="3D 지도 상태">
+          <span>3D GPS TRACE</span>
+          <strong id="mapInstruction">위치 수신 대기</strong>
+          <small id="mapSubStatus">원본 좌표 저장 · 표시 경로 보정</small>
         </div>
-        <footer class="mapFooter" aria-label="경로 표시 방식">
-          <span>RAW GPS SAVED</span>
-          <span>DISPLAY PATH SMOOTHED</span>
-          <span>LOW ACCURACY MUTED</span>
-        </footer>
-      </section>
+      </div>
+      <aside class="hud">
+        <div class="brand-rail">
+          <h1>Wondering<br>Location</h1>
+          <div class="status-wrap">
+            <div id="signalDot" class="signal-dot"></div>
+            <p id="status">Waiting</p>
+          </div>
+        </div>
+        <div class="readings">
+          <div class="reading">
+            <span>Last Received</span>
+            <strong id="lastSeen">-</strong>
+          </div>
+          <div class="reading">
+            <span>Coordinate</span>
+            <strong id="coords">-</strong>
+          </div>
+          <div class="reading">
+            <span>Distance</span>
+            <strong id="distance">-</strong>
+          </div>
+        </div>
+        <div class="controls">
+          <input id="tokenInput" type="password" autocomplete="off" placeholder="Token" />
+          <input id="dateInput" type="date" />
+          <select id="pollSelect">
+            <option value="5000">5s</option>
+            <option value="10000" selected>10s</option>
+            <option value="30000">30s</option>
+          </select>
+          <button id="saveTokenButton" type="button">Set</button>
+        </div>
+      </aside>
     </main>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>

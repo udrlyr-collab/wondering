@@ -34,6 +34,8 @@
 - Use Douglas-Peucker simplification to avoid drawing excessive points.
 - Use screen-only interpolation and smoothing when useful.
 - Break the visible route when valid points are too far apart.
+- Web route rendering may use MapLibre GL GeoJSON sources and line/symbol layers.
+- 3D building extrusion is display-only and must not alter stored location data.
 
 ## Web UI Rules
 
@@ -44,17 +46,20 @@
 - Use local Wanted Sans from `web/public/fonts/WantedSansVariable.woff2`.
 - Prefer a single operational HUD over stacked cards.
 - Keep the HUD shallow, horizontal on desktop, and bottom-sheet-like on mobile.
-- Use an editorial location-control-board visual direction, not a copied calendar screen.
-- The base palette must be warm off-white, black, restrained gray, and one tiny functional signal accent.
-- Use oversized numeric typography for last received time or operational readings, not decorative date display.
-- Use thin black rules, strong typography, and a vertical brand rail to structure the dashboard.
-- Keep the map as a primary operational surface, not a secondary decorative panel.
-- Do not add decorative glow, gradients, ornamental imagery, or unrelated color accents.
-- Route, controls, and status text must stay mostly monochrome; the signal accent is reserved for live/fresh state and current marker only.
+- Use a 3D navigation-map visual direction backed by MapLibre GL.
+- The base palette must be warm off-white, black, restrained gray, and one functional blue route accent.
+- Recolor the base map into a bright paper/ink operational style: light land, quiet water, white roads, clearly separated gray casings, restrained labels.
+- 3D buildings must support depth without becoming decorative; use light neutral gray extrusion, not saturated or heavy dark color.
+- Use pitch, bearing, and building extrusion to create depth.
+- Use strong operational typography for last received time, coordinate, and distance.
+- Keep the map as the dominant operational surface.
+- Do not add decorative glow, ornamental imagery, or unrelated color accents.
+- The main route should read as an ink trace; reserve blue for directional/current-location signals and accuracy feedback.
+- Map status, controls, labels, and dashboard text stay black/off-white/gray unless status clarity requires otherwise.
 - Border radius is 8px or less.
 - Do not use marketing sections, floating ornamentation, or decorative illustration layers.
 - Current location and previous route must be visually distinct.
-- Current marker is circular with a subtle pulse and an accuracy circle when available.
+- Current marker is a blue circle with a white border, a subtle pulse, and an accuracy circle when available.
 - If updates stop, show waiting or age-based status text.
 
 ## Android UI Rules

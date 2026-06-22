@@ -1,16 +1,14 @@
 const statusEl = document.querySelector("#status");
+const signalDotEl = document.querySelector("#signalDot");
 const lastSeenEl = document.querySelector("#lastSeen");
 const coordsEl = document.querySelector("#coords");
 const distanceEl = document.querySelector("#distance");
-const pointCountEl = document.querySelector("#pointCount");
 const tokenInput = document.querySelector("#tokenInput");
 const dateInput = document.querySelector("#dateInput");
 const pollSelect = document.querySelector("#pollSelect");
-const heroDayEl = document.querySelector("#heroDay");
-const miniDayEl = document.querySelector("#miniDay");
-const monthLabelEl = document.querySelector("#monthLabel");
-const weekdayLabelEl = document.querySelector("#weekdayLabel");
-const mapCaptionEl = document.querySelector("#mapCaption");
+const mapInstructionEl = document.querySelector("#mapInstruction");
+const mapSubStatusEl = document.querySelector("#mapSubStatus");
+const mapEl = document.querySelector("#map");
 
 const MAX_RECORDS = 1500;
 const MAX_INVALID_MARKERS = 200;
@@ -18,26 +16,55 @@ const MAX_CONNECTED_GAP_M = 2000;
 const INTERPOLATION_STEP_M = 80;
 const ROUTE_TOLERANCE_PX = 3;
 const MARKER_ANIMATION_MS = 650;
+const DEFAULT_CAMERA = {
+  center: [126.978, 37.5665],
+  zoom: 16.2,
+  pitch: 62,
+  bearing: -28,
+};
+const MAP_COLORS = {
+  paper: "#f7f6f1",
+  paperDeep: "#e4e1d8",
+  park: "#e4eddf",
+  water: "#d8e9ef",
+  road: "#ffffff",
+  roadCasing: "#181818",
+  rail: "#5f5b54",
+  label: "#111111",
+  mutedLabel: "#4f4b45",
+  route: "#101010",
+  routeHalo: "#ffffff",
+  routeAccent: "#0877ff",
+  invalid: "#6e6e68",
+};
 
 let pollTimer = null;
 let marker = null;
 let markerAnimation = null;
-let accuracyCircle = null;
-let routeHalo = null;
-let routeLine = null;
-let invalidLayer = null;
 let hasFitRoute = false;
+let mapReady = false;
 
-const map = L.map("map", { zoomControl: false }).setView([37.5665, 126.978], 13);
-L.control.zoom({ position: "bottomright" }).addTo(map);
-L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-  maxZoom: 20,
-  attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
-}).addTo(map);
-requestAnimationFrame(() => map.invalidateSize());
-window.addEventListener("resize", () => map.invalidateSize());
+const emptyFeatureCollection = { type: "FeatureCollection", features: [] };
+const transparentIcon = {
+  width: 1,
+  height: 1,
+  data: new Uint8Array([0, 0, 0, 0]),
+};
 
-invalidLayer = L.layerGroup().addTo(map);
+const map = new maplibregl.Map({
+  container: "map",
+  style: "https://tiles.openfreemap.org/styles/positron",
+  center: DEFAULT_CAMERA.center,
+  zoom: DEFAULT_CAMERA.zoom,
+  pitch: DEFAULT_CAMERA.pitch,
+  bearing: DEFAULT_CAMERA.bearing,
+  antialias: true,
+  attributionControl: true,
+});
+
+map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
+map.dragRotate.enable();
+map.touchZoomRotate.enableRotation();
 tokenInput.value = localStorage.getItem("wonderingDashboardToken") || "";
 
 document.querySelector("#saveTokenButton").addEventListener("click", () => {
@@ -45,33 +72,32 @@ document.querySelector("#saveTokenButton").addEventListener("click", () => {
   loadLocations();
 });
 
-document.querySelector("#refreshButton").addEventListener("click", loadLocations);
 dateInput.addEventListener("change", () => {
   hasFitRoute = false;
   loadLocations();
 });
 pollSelect.addEventListener("change", resetPolling);
 map.on("zoomend", () => loadLocations({ keepViewport: true }));
+map.on("pitchend", updateMapDiagnostics);
+map.on("rotateend", updateMapDiagnostics);
+map.on("idle", updateMapDiagnostics);
+map.on("style.load", initializeMap);
+map.on("load", initializeMap);
+map.on("styleimagemissing", (event) => {
+  if (!map.hasImage(event.id)) map.addImage(event.id, transparentIcon);
+});
+map.on("error", (event) => {
+  if (mapEl) mapEl.dataset.mapError = event.error?.message || "map error";
+});
 
 function headers() {
   const token = localStorage.getItem("wonderingDashboardToken") || "";
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-function fmtTime(ms) {
-  if (!ms) return "-";
-  return new Intl.DateTimeFormat("ko-KR", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(new Date(ms));
-}
-
 function fmtClock(ms) {
-  if (!ms) return "--:--";
-  return new Intl.DateTimeFormat("ko-KR", {
+  if (!ms) return "--:--:--";
+  return new Intl.DateTimeFormat("en-US", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -81,26 +107,8 @@ function fmtClock(ms) {
 
 function fmtDistance(meters) {
   const value = Number(meters || 0);
-  if (value >= 1000) return `${(value / 1000).toFixed(1)} km`;
-  return `${Math.round(value)} m`;
-}
-
-function fmtAge(ms) {
-  if (!ms) return "새 위치 수신 대기 중";
-  const ageSec = Math.max(0, Math.floor((Date.now() - ms) / 1000));
-  if (ageSec < 20) return "실시간 수신 중";
-  if (ageSec < 120) return "새 위치 수신 대기 중";
-  return `마지막 업데이트 ${Math.floor(ageSec / 60)}분 전`;
-}
-
-function updateDateDisplay(ms) {
-  const date = ms ? new Date(ms) : new Date();
-  const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-  const weekdayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-  heroDayEl.textContent = String(date.getDate()).padStart(2, "0");
-  miniDayEl.textContent = String(date.getMonth() + 1).padStart(2, "0");
-  monthLabelEl.textContent = monthNames[date.getMonth()];
-  weekdayLabelEl.textContent = weekdayNames[date.getDay()];
+  if (value >= 1000) return `${(value / 1000).toFixed(1)} KM`;
+  return `${Math.round(value)} M`;
 }
 
 function rawStatusLabel(status) {
@@ -113,24 +121,249 @@ function rawStatusLabel(status) {
   }[status] || status || "unknown";
 }
 
-function currentIcon() {
-  return L.divIcon({
-    className: "currentMarkerWrap",
-    html: '<div class="currentMarker"></div>',
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
-  });
+function setPaint(layerId, property, value) {
+  if (!map.getLayer(layerId)) return;
+  try {
+    map.setPaintProperty(layerId, property, value);
+  } catch {
+    // Hosted styles can vary; unsupported paint properties are skipped.
+  }
 }
 
-function toLatLng(point) {
-  return [point.latitude, point.longitude];
+function setLayout(layerId, property, value) {
+  if (!map.getLayer(layerId)) return;
+  try {
+    map.setLayoutProperty(layerId, property, value);
+  } catch {
+    // Hosted styles can vary; unsupported layout properties are skipped.
+  }
+}
+
+function applyWonderingMapTheme() {
+  const layers = map.getStyle()?.layers || [];
+  if (mapEl) mapEl.dataset.mapTheme = "bright-paper-ink";
+  setPaint("background", "background-color", MAP_COLORS.paper);
+
+  layers.forEach((layer) => {
+    const id = layer.id;
+    const sourceLayer = layer["source-layer"] || "";
+
+    if (id === "building" || id === "building-top") return;
+
+    if (layer.type === "symbol") {
+      if (id.startsWith("poi_") || id.includes("shield") || id.startsWith("road_oneway") || id === "airport") {
+        setLayout(id, "visibility", "none");
+        return;
+      }
+
+      const textColor =
+        sourceLayer === "transportation_name" || sourceLayer === "water_name" || sourceLayer === "waterway"
+          ? MAP_COLORS.mutedLabel
+          : MAP_COLORS.label;
+      setPaint(id, "text-color", textColor);
+      setPaint(id, "text-halo-color", MAP_COLORS.paper);
+      setPaint(id, "text-halo-width", 1.6);
+      setPaint(id, "text-opacity", 0.9);
+      setPaint(id, "icon-opacity", 0);
+    }
+  });
+
+  if (typeof map.setLight === "function") {
+    try {
+      map.setLight({ anchor: "viewport", color: "#ffffff", intensity: 0.42, position: [1.2, 210, 34] });
+    } catch {
+      // Light support depends on the active style version.
+    }
+  }
+}
+
+function initializeMap() {
+  if (mapReady) {
+    updateMapDiagnostics();
+    return;
+  }
+  if (!map.getStyle()?.layers?.length || !map.getSource("openmaptiles")) return;
+  mapReady = true;
+  setupMapLayers();
+  loadLocations();
+  resetPolling();
+  setTimeout(updateMapDiagnostics, 1800);
+  setTimeout(updateMapDiagnostics, 5000);
+}
+
+function updateMapDiagnostics() {
+  if (!mapEl) return;
+  mapEl.dataset.mapReady = String(mapReady);
+  mapEl.dataset.mapLoaded = String(map.loaded());
+  mapEl.dataset.pitch = String(Math.round(map.getPitch()));
+  mapEl.dataset.bearing = String(Math.round(map.getBearing()));
+  mapEl.dataset.zoom = map.getZoom().toFixed(1);
+  mapEl.dataset.has3dBuildings = String(Boolean(map.getLayer("wondering-3d-buildings")));
+  mapEl.dataset.hasRouteLayers = String(
+    ["route-halo", "route-line", "route-direction", "accuracy-fill", "invalid-points"].every((id) =>
+      Boolean(map.getLayer(id))
+    )
+  );
+  try {
+    mapEl.dataset.renderedFeatureCount = String(map.queryRenderedFeatures().length);
+  } catch {
+    mapEl.dataset.renderedFeatureCount = "unknown";
+  }
+}
+
+function setupMapLayers() {
+  applyWonderingMapTheme();
+
+  if (map.getLayer("building")) map.setLayoutProperty("building", "visibility", "none");
+  if (map.getLayer("building-top")) map.setLayoutProperty("building-top", "visibility", "none");
+
+  const firstSymbolLayer = map.getStyle().layers.find((layer) => layer.type === "symbol");
+  const beforeId = firstSymbolLayer ? firstSymbolLayer.id : undefined;
+
+  if (map.getSource("openmaptiles") && !map.getLayer("wondering-3d-buildings")) {
+    map.addLayer(
+      {
+        id: "wondering-3d-buildings",
+        source: "openmaptiles",
+        "source-layer": "building",
+        type: "fill-extrusion",
+        minzoom: 14,
+        paint: {
+          "fill-extrusion-color": [
+            "interpolate",
+            ["linear"],
+            ["to-number", ["get", "render_height"], ["to-number", ["get", "height"], 12]],
+            0,
+            "#c7c5bc",
+            80,
+            "#aaa8a0",
+            180,
+            "#7d7d78",
+          ],
+          "fill-extrusion-height": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            14,
+            0,
+            15.5,
+            ["max", 8, ["to-number", ["get", "render_height"], ["to-number", ["get", "height"], 12]]],
+          ],
+          "fill-extrusion-base": [
+            "to-number",
+            ["get", "render_min_height"],
+            ["to-number", ["get", "min_height"], 0],
+          ],
+          "fill-extrusion-opacity": 0.88,
+          "fill-extrusion-vertical-gradient": true,
+        },
+      },
+      beforeId
+    );
+  }
+
+  map.addSource("display-route", { type: "geojson", data: emptyFeatureCollection, lineMetrics: true });
+  map.addSource("invalid-points", { type: "geojson", data: emptyFeatureCollection });
+  map.addSource("accuracy-area", { type: "geojson", data: emptyFeatureCollection });
+
+  map.addLayer({
+    id: "accuracy-fill",
+    type: "fill",
+    source: "accuracy-area",
+    paint: {
+      "fill-color": MAP_COLORS.routeAccent,
+      "fill-opacity": 0.08,
+    },
+  });
+
+  map.addLayer({
+    id: "accuracy-line",
+    type: "line",
+    source: "accuracy-area",
+    paint: {
+      "line-color": MAP_COLORS.routeAccent,
+      "line-opacity": 0.22,
+      "line-width": 1.4,
+    },
+  });
+
+  map.addLayer({
+    id: "route-halo",
+    type: "line",
+    source: "display-route",
+    layout: {
+      "line-cap": "round",
+      "line-join": "round",
+    },
+    paint: {
+      "line-color": MAP_COLORS.routeHalo,
+      "line-opacity": 0.9,
+      "line-width": ["interpolate", ["linear"], ["zoom"], 13, 8, 17, 14],
+    },
+  });
+
+  map.addLayer({
+    id: "route-line",
+    type: "line",
+    source: "display-route",
+    layout: {
+      "line-cap": "round",
+      "line-join": "round",
+    },
+    paint: {
+      "line-color": MAP_COLORS.route,
+      "line-opacity": 0.96,
+      "line-width": ["interpolate", ["linear"], ["zoom"], 13, 3.6, 17, 5.2],
+    },
+  });
+
+  map.addLayer({
+    id: "route-direction",
+    type: "symbol",
+    source: "display-route",
+    minzoom: 15,
+    layout: {
+      "symbol-placement": "line",
+      "symbol-spacing": 58,
+      "text-field": "▶",
+      "text-size": 13,
+      "text-keep-upright": false,
+      "text-rotation-alignment": "map",
+      "text-pitch-alignment": "map",
+    },
+    paint: {
+      "text-color": MAP_COLORS.routeAccent,
+      "text-halo-color": MAP_COLORS.routeHalo,
+      "text-halo-width": 1.4,
+    },
+  });
+
+  map.addLayer({
+    id: "invalid-points",
+    type: "circle",
+    source: "invalid-points",
+    paint: {
+      "circle-radius": 4,
+      "circle-color": MAP_COLORS.invalid,
+      "circle-opacity": 0.28,
+      "circle-stroke-color": MAP_COLORS.paper,
+      "circle-stroke-width": 1,
+      "circle-stroke-opacity": 0.7,
+    },
+  });
+
+  updateMapDiagnostics();
+}
+
+function toLngLat(point) {
+  return [point.longitude, point.latitude];
 }
 
 function distanceMeters(a, b) {
-  const aLat = Array.isArray(a) ? a[0] : a.latitude;
-  const aLng = Array.isArray(a) ? a[1] : a.longitude;
-  const bLat = Array.isArray(b) ? b[0] : b.latitude;
-  const bLng = Array.isArray(b) ? b[1] : b.longitude;
+  const aLng = Array.isArray(a) ? a[0] : a.longitude;
+  const aLat = Array.isArray(a) ? a[1] : a.latitude;
+  const bLng = Array.isArray(b) ? b[0] : b.longitude;
+  const bLat = Array.isArray(b) ? b[1] : b.latitude;
   const radius = 6371000;
   const lat1 = (aLat * Math.PI) / 180;
   const lat2 = (bLat * Math.PI) / 180;
@@ -189,8 +422,7 @@ function simplifyDPStep(projected, first, last, sqTolerance, keep) {
 
 function simplifySegment(segment) {
   if (segment.length <= 2) return segment;
-  const zoom = map.getZoom();
-  const projected = segment.map((point) => map.project(point, zoom));
+  const projected = segment.map((point) => map.project(point));
   const keep = new Array(segment.length).fill(false);
   keep[0] = true;
   keep[segment.length - 1] = true;
@@ -240,10 +472,10 @@ function buildDisplaySegments(records) {
   if (valid.length === 0) return [];
 
   const rawSegments = [];
-  let current = [toLatLng(valid[0])];
+  let current = [toLngLat(valid[0])];
 
   for (let i = 1; i < valid.length; i += 1) {
-    const point = toLatLng(valid[i]);
+    const point = toLngLat(valid[i]);
     const previous = current[current.length - 1];
     if (distanceMeters(previous, point) > MAX_CONNECTED_GAP_M) {
       rawSegments.push(current);
@@ -259,166 +491,191 @@ function buildDisplaySegments(records) {
     .filter((segment) => segment.length >= 2);
 }
 
-function clearRoute() {
-  if (routeHalo) routeHalo.remove();
-  if (routeLine) routeLine.remove();
-  routeHalo = null;
-  routeLine = null;
+function routeGeoJson(segments) {
+  return {
+    type: "FeatureCollection",
+    features: segments.map((segment) => ({
+      type: "Feature",
+      properties: {},
+      geometry: { type: "LineString", coordinates: segment },
+    })),
+  };
+}
+
+function invalidGeoJson(records) {
+  return {
+    type: "FeatureCollection",
+    features: records
+      .filter((record) => record.raw_status !== "valid")
+      .slice(-MAX_INVALID_MARKERS)
+      .map((record) => ({
+        type: "Feature",
+        properties: { raw_status: rawStatusLabel(record.raw_status) },
+        geometry: { type: "Point", coordinates: toLngLat(record) },
+      })),
+  };
+}
+
+function circlePolygon(center, radiusMeters, steps = 72) {
+  const [lng, lat] = center;
+  const latRad = (lat * Math.PI) / 180;
+  const dLat = radiusMeters / 111320;
+  const dLng = radiusMeters / (111320 * Math.max(0.2, Math.cos(latRad)));
+  const coordinates = [];
+
+  for (let i = 0; i <= steps; i += 1) {
+    const angle = (i / steps) * Math.PI * 2;
+    coordinates.push([lng + Math.cos(angle) * dLng, lat + Math.sin(angle) * dLat]);
+  }
+
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: {},
+        geometry: { type: "Polygon", coordinates: [coordinates] },
+      },
+    ],
+  };
+}
+
+function clearMapData() {
+  if (!mapReady) return;
+  map.getSource("display-route").setData(emptyFeatureCollection);
+  map.getSource("invalid-points").setData(emptyFeatureCollection);
+  map.getSource("accuracy-area").setData(emptyFeatureCollection);
 }
 
 function drawRoute(segments) {
-  clearRoute();
-  if (segments.length === 0) return;
-
-  routeHalo = L.polyline(segments, {
-    color: "#000000",
-    weight: 10,
-    opacity: 0.14,
-    lineCap: "round",
-    lineJoin: "round",
-    interactive: false,
-  }).addTo(map);
-
-  routeLine = L.polyline(segments, {
-    color: "#000000",
-    weight: 4.5,
-    opacity: 0.9,
-    lineCap: "round",
-    lineJoin: "round",
-  }).addTo(map);
+  if (!mapReady) return;
+  map.getSource("display-route").setData(routeGeoJson(segments));
 }
 
 function drawInvalidPoints(records) {
-  invalidLayer.clearLayers();
-  records
-    .filter((record) => record.raw_status !== "valid")
-    .slice(-MAX_INVALID_MARKERS)
-    .forEach((record) => {
-      L.circleMarker(toLatLng(record), {
-        radius: 4,
-        color: "#111111",
-        weight: 1,
-        opacity: 0.24,
-        fillColor: "#111111",
-        fillOpacity: 0.08,
-      })
-        .bindTooltip(rawStatusLabel(record.raw_status), { direction: "top", opacity: 0.82 })
-        .addTo(invalidLayer);
-    });
+  if (!mapReady) return;
+  map.getSource("invalid-points").setData(invalidGeoJson(records));
 }
 
-function animateMarkerTo(nextLatLng) {
+function animateMarkerTo(nextLngLat) {
   if (!marker) {
-    marker = L.marker(nextLatLng, { icon: currentIcon(), zIndexOffset: 1000 }).addTo(map);
+    const el = document.createElement("div");
+    el.className = "currentMarker";
+    marker = new maplibregl.Marker({ element: el, anchor: "center", pitchAlignment: "map", rotationAlignment: "map" })
+      .setLngLat(nextLngLat)
+      .addTo(map);
     return;
   }
 
   if (markerAnimation) cancelAnimationFrame(markerAnimation);
-  const start = marker.getLatLng();
-  const from = [start.lat, start.lng];
+  const start = marker.getLngLat();
+  const from = [start.lng, start.lat];
   const startedAt = performance.now();
 
   function frame(now) {
     const t = Math.min(1, (now - startedAt) / MARKER_ANIMATION_MS);
     const eased = 1 - Math.pow(1 - t, 3);
-    marker.setLatLng(interpolatePoint(from, nextLatLng, eased));
+    marker.setLngLat(interpolatePoint(from, nextLngLat, eased));
     if (t < 1) markerAnimation = requestAnimationFrame(frame);
   }
 
   markerAnimation = requestAnimationFrame(frame);
 }
 
-function updateAccuracyCircle(point) {
-  if (accuracyCircle) accuracyCircle.remove();
-  accuracyCircle = null;
+function updateAccuracyArea(point) {
+  if (!mapReady) return;
   const accuracy = Number(point.accuracyMeters);
-  if (!Number.isFinite(accuracy) || accuracy <= 0) return;
-
-  accuracyCircle = L.circle(toLatLng(point), {
-    radius: accuracy,
-    color: "#000000",
-    weight: 1,
-    opacity: 0.22,
-    fillColor: "#000000",
-    fillOpacity: 0.06,
-    interactive: false,
-  }).addTo(map);
+  const source = map.getSource("accuracy-area");
+  if (!Number.isFinite(accuracy) || accuracy <= 0) {
+    source.setData(emptyFeatureCollection);
+    return;
+  }
+  source.setData(circlePolygon(toLngLat(point), accuracy));
 }
 
 function fitViewport(segments, latestPoint, keepViewport) {
-  if (keepViewport) return;
-  const latestLatLng = toLatLng(latestPoint);
+  if (!mapReady || keepViewport) return;
+  const latestLngLat = toLngLat(latestPoint);
   const currentBounds = map.getBounds();
-  if (hasFitRoute && currentBounds.pad(-0.15).contains(latestLatLng)) return;
+  if (hasFitRoute && currentBounds.contains(latestLngLat)) return;
 
-  if (routeLine) {
-    map.fitBounds(routeLine.getBounds(), { padding: [36, 36], maxZoom: 17 });
-  } else if (segments.length === 0) {
-    map.setView(latestLatLng, 16);
+  const bounds = new maplibregl.LngLatBounds(latestLngLat, latestLngLat);
+  segments.flat().forEach((point) => bounds.extend(point));
+
+  if (segments.length > 0) {
+    map.fitBounds(bounds, { padding: 80, maxZoom: 17.2, duration: 900 });
+    setTimeout(() => map.easeTo({ pitch: DEFAULT_CAMERA.pitch, bearing: DEFAULT_CAMERA.bearing, duration: 500 }), 920);
+  } else {
+    map.easeTo({
+      center: latestLngLat,
+      zoom: DEFAULT_CAMERA.zoom,
+      pitch: DEFAULT_CAMERA.pitch,
+      bearing: DEFAULT_CAMERA.bearing,
+      duration: 800,
+    });
   }
   hasFitRoute = true;
 }
 
 function updateFreshness(latest) {
-  const statusText = fmtAge(latest.timestamp);
-  statusEl.textContent = `${latest.deviceName || "Android"} · ${statusText}`;
-  mapCaptionEl.textContent = statusText;
-  statusEl.classList.toggle("warning", Date.now() - latest.timestamp > 120000 || latest.raw_status !== "valid");
+  const isStale = Date.now() - latest.timestamp > 120000 || latest.raw_status !== "valid";
+  statusEl.textContent = isStale ? "OFFLINE" : "LIVE";
+  mapInstructionEl.textContent = isStale ? "새 위치 수신 대기 중" : "실시간 위치 추적 중";
+  mapSubStatusEl.textContent = `${latest.deviceName || "Android"} · ${fmtClock(latest.timestamp)}`;
+  signalDotEl.classList.toggle("live", !isStale);
 }
 
 function render(records, options = {}) {
   const latestRaw = records.at(-1);
   const latestValid = [...records].reverse().find((record) => record.raw_status === "valid");
   const latestDisplay = latestValid || latestRaw;
-  const validCount = records.filter((record) => record.raw_status === "valid").length;
-  pointCountEl.textContent = `${validCount} / ${records.length}`;
 
   if (!latestRaw || !latestDisplay) {
-    statusEl.textContent = "수신된 위치 없음";
-    statusEl.classList.remove("warning");
-    lastSeenEl.textContent = "--:--";
-    coordsEl.textContent = "좌표 대기";
-    distanceEl.textContent = "0 m";
-    pointCountEl.textContent = "0 / 0";
-    mapCaptionEl.textContent = "새 위치 수신 대기 중";
-    updateDateDisplay();
-    clearRoute();
-    invalidLayer.clearLayers();
+    statusEl.textContent = "WAITING";
+    mapInstructionEl.textContent = "위치 수신 대기";
+    mapSubStatusEl.textContent = "원본 좌표 저장 · 표시 경로 보정";
+    signalDotEl.classList.remove("live");
+    lastSeenEl.textContent = "--:--:--";
+    coordsEl.textContent = "- / -";
+    distanceEl.textContent = "0 M";
+    clearMapData();
     return;
   }
 
-  updateDateDisplay(latestRaw.timestamp);
   updateFreshness(latestRaw);
   lastSeenEl.textContent = fmtClock(latestRaw.timestamp);
-  coordsEl.textContent = `${latestDisplay.latitude.toFixed(6)} / ${latestDisplay.longitude.toFixed(6)}`;
+  coordsEl.textContent = `${latestDisplay.latitude.toFixed(5)} / ${latestDisplay.longitude.toFixed(5)}`;
   distanceEl.textContent = fmtDistance(latestRaw.distanceMeters);
 
   const segments = buildDisplaySegments(records);
   drawRoute(segments);
   drawInvalidPoints(records);
-  animateMarkerTo(toLatLng(latestDisplay));
-  updateAccuracyCircle(latestDisplay);
+  animateMarkerTo(toLngLat(latestDisplay));
+  updateAccuracyArea(latestDisplay);
   fitViewport(segments, latestDisplay, options.keepViewport);
 }
 
 async function loadLocations(options = {}) {
+  if (!mapReady) return;
   try {
     const params = new URLSearchParams({ limit: String(MAX_RECORDS) });
     if (dateInput.value) params.set("date", dateInput.value);
     const res = await fetch(`/api/locations?${params.toString()}`, { headers: headers() });
     if (res.status === 401) {
-      statusEl.textContent = "토큰 필요";
-      mapCaptionEl.textContent = "토큰 필요";
-      statusEl.classList.add("warning");
+      statusEl.textContent = "TOKEN REQ";
+      mapInstructionEl.textContent = "토큰 필요";
+      mapSubStatusEl.textContent = "관리자 토큰을 저장하세요";
+      signalDotEl.classList.remove("live");
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     render(data.records || [], options);
   } catch {
-    statusEl.textContent = "서버 연결 실패";
-    mapCaptionEl.textContent = "서버 연결 실패";
-    statusEl.classList.add("warning");
+    statusEl.textContent = "ERROR";
+    mapInstructionEl.textContent = "서버 연결 실패";
+    mapSubStatusEl.textContent = "API 응답을 확인하세요";
+    signalDotEl.classList.remove("live");
   }
 }
 
@@ -426,7 +683,3 @@ function resetPolling() {
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = setInterval(loadLocations, Number(pollSelect.value));
 }
-
-updateDateDisplay();
-loadLocations();
-resetPolling();
