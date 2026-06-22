@@ -84,6 +84,10 @@ body.is-viewer .map-status-card {
   display: none;
 }
 
+body.is-viewer .locate-control {
+  display: grid;
+}
+
 .map-container {
   flex: 1;
   min-width: 0;
@@ -145,6 +149,64 @@ body.is-viewer .map-status-card {
 
 .map-status-card small {
   font-size: 14px;
+}
+
+.locate-control {
+  position: absolute;
+  right: 14px;
+  bottom: 116px;
+  z-index: 5;
+  width: 44px;
+  height: 44px;
+  display: none;
+  place-items: center;
+  border: 1px solid var(--border-rule);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--route-accent);
+  box-shadow: 0 10px 22px rgba(16, 16, 16, 0.16);
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.locate-control:hover {
+  background: #ffffff;
+  transform: translateY(-1px);
+}
+
+.locate-control:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.locate-control:disabled {
+  cursor: default;
+  opacity: 0.46;
+  color: var(--text-muted);
+  transform: none;
+}
+
+.locate-control-icon {
+  position: relative;
+  width: 21px;
+  height: 21px;
+  display: block;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  background:
+    linear-gradient(currentColor, currentColor) center / 2px 100% no-repeat,
+    linear-gradient(90deg, currentColor, currentColor) center / 100% 2px no-repeat;
+}
+
+.locate-control-icon::after {
+  position: absolute;
+  inset: 5px;
+  content: "";
+  border-radius: 50%;
+  background: currentColor;
 }
 
 /* Horizontal HUD */
@@ -580,6 +642,13 @@ body.is-viewer .map-status-card {
 
   .map-status-card strong {
     font-size: 30px;
+  }
+
+  .locate-control {
+    right: 12px;
+    bottom: 110px;
+    width: 42px;
+    height: 42px;
   }
 
   body.is-viewer {

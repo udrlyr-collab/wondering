@@ -48,6 +48,7 @@
 - The map is the primary work surface.
 - Public viewer mode must show only the map, status, and location readings.
 - Public viewer mode must not show the floating map status card.
+- Public viewer mode may show one compact current-location map control.
 - Mobile public viewer HUD must stay compact and should not consume more vertical space than needed for key readings.
 - Administrator controls must appear only on the admin host or local admin test mode after PIN login.
 - Admin controls should be a large separated workspace; keep the live viewer smaller in admin mode.

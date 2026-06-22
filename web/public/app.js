@@ -19,6 +19,7 @@ const adminFeedbackEl = document.querySelector("#adminFeedback");
 const mapInstructionEl = document.querySelector("#mapInstruction");
 const mapSubStatusEl = document.querySelector("#mapSubStatus");
 const mapEl = document.querySelector("#map");
+const locateCurrentButton = document.querySelector("#locateCurrentButton");
 
 const MAX_RECORDS = 1500;
 const MAX_INVALID_MARKERS = 200;
@@ -26,6 +27,8 @@ const MAX_CONNECTED_GAP_M = 2000;
 const INTERPOLATION_STEP_M = 80;
 const ROUTE_TOLERANCE_PX = 3;
 const MARKER_ANIMATION_MS = 650;
+const CURRENT_LOCATION_ZOOM = 17.7;
+const CURRENT_LOCATION_MAX_ZOOM = 18.3;
 const DEFAULT_CAMERA = {
   center: [126.978, 37.5665],
   zoom: 16.2,
@@ -68,6 +71,7 @@ const MAP_COLORS = {
 let pollTimer = null;
 let marker = null;
 let markerAnimation = null;
+let latestTrackedLngLat = null;
 let hasFitRoute = false;
 let mapReady = false;
 let appSettings = { ...DEFAULT_SETTINGS };
@@ -103,6 +107,7 @@ document.querySelector("#lockAdminButton")?.addEventListener("click", lockAdmin)
 document.querySelector("#saveSettingsButton")?.addEventListener("click", saveAdminSettings);
 document.querySelector("#generateTokenButton")?.addEventListener("click", generateUploadToken);
 document.querySelector("#rotateTokenButton")?.addEventListener("click", rotateUploadToken);
+locateCurrentButton?.addEventListener("click", focusTrackedLocation);
 
 dateInput?.addEventListener("change", () => {
   hasFitRoute = false;
@@ -857,6 +862,26 @@ function updateAccuracyArea(point) {
   source.setData(circlePolygon(toLngLat(point), accuracy));
 }
 
+function setLocateButtonEnabled(enabled) {
+  if (!locateCurrentButton) return;
+  locateCurrentButton.disabled = !enabled;
+  locateCurrentButton.setAttribute("aria-disabled", String(!enabled));
+}
+
+function focusTrackedLocation() {
+  if (!mapReady || !latestTrackedLngLat) return;
+  const zoom = Math.min(Math.max(map.getZoom(), CURRENT_LOCATION_ZOOM), CURRENT_LOCATION_MAX_ZOOM);
+  map.easeTo({
+    center: latestTrackedLngLat,
+    zoom,
+    pitch: DEFAULT_CAMERA.pitch,
+    bearing: DEFAULT_CAMERA.bearing,
+    duration: 850,
+    essential: true,
+  });
+  hasFitRoute = true;
+}
+
 function fitViewport(segments, latestPoint, keepViewport) {
   if (!mapReady || keepViewport) return;
   const latestLngLat = toLngLat(latestPoint);
@@ -895,6 +920,8 @@ function render(records, options = {}) {
   const latestDisplay = latestValid || latestRaw;
 
   if (!latestRaw || !latestDisplay) {
+    latestTrackedLngLat = null;
+    setLocateButtonEnabled(false);
     statusEl.textContent = "WAITING";
     mapInstructionEl.textContent = "위치 수신 대기";
     mapSubStatusEl.textContent = "원본 좌표 저장 · 표시 경로 보정";
@@ -910,11 +937,13 @@ function render(records, options = {}) {
   lastSeenEl.textContent = fmtClock(latestRaw.timestamp);
   coordsEl.textContent = `${latestDisplay.latitude.toFixed(5)} / ${latestDisplay.longitude.toFixed(5)}`;
   distanceEl.textContent = fmtDistance(latestRaw.distanceMeters);
+  latestTrackedLngLat = toLngLat(latestDisplay);
+  setLocateButtonEnabled(true);
 
   const segments = buildDisplaySegments(records);
   drawRoute(segments);
   drawInvalidPoints(shouldShowInvalidPoints() ? records : []);
-  animateMarkerTo(toLngLat(latestDisplay));
+  animateMarkerTo(latestTrackedLngLat);
   updateAccuracyArea(latestDisplay);
   fitViewport(segments, latestDisplay, options.keepViewport);
 }
