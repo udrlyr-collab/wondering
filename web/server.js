@@ -1,9 +1,11 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const port = Number(process.env.PORT || 5174);
 const envToken = process.env.LOCATION_SHARE_TOKEN || "";
+const adminPin = process.env.ADMIN_PIN || "";
 const publicDir = path.join(__dirname, "public");
 const dataDir = path.join(__dirname, "data");
 const dataFile = path.join(dataDir, "locations.jsonl");
@@ -23,6 +25,11 @@ const DEFAULT_PUBLIC_SETTINGS = {
   publicMaxRecords: 1500,
   publicShowInvalidPoints: true,
 };
+const ADMIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const PIN_FAILURE_WINDOW_MS = 5 * 60 * 1000;
+const PIN_FAILURE_LIMIT = 10;
+const adminSessions = new Map();
+const pinFailures = new Map();
 
 fs.mkdirSync(dataDir, { recursive: true });
 
@@ -55,10 +62,21 @@ function activeToken() {
   return savedToken || envToken;
 }
 
+function bearerToken(req) {
+  const header = req.headers.authorization || "";
+  return header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+}
+
+function timingSafeEqualString(a, b) {
+  const left = Buffer.from(String(a));
+  const right = Buffer.from(String(b));
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+
 function isAuthorized(req) {
   const token = activeToken();
   if (!token) return true;
-  return req.headers.authorization === `Bearer ${token}`;
+  return timingSafeEqualString(bearerToken(req), token);
 }
 
 function publicSettings() {
@@ -85,6 +103,57 @@ function assertAuthorized(req, res) {
   if (isAuthorized(req)) return true;
   sendJson(res, 401, { error: "unauthorized" });
   return false;
+}
+
+function cleanupAdminSessions() {
+  const now = Date.now();
+  for (const [sessionToken, session] of adminSessions.entries()) {
+    if (session.expiresAt <= now) adminSessions.delete(sessionToken);
+  }
+}
+
+function isAdminAuthorized(req) {
+  cleanupAdminSessions();
+  const session = adminSessions.get(bearerToken(req));
+  return Boolean(session && session.expiresAt > Date.now());
+}
+
+function assertAdminAuthorized(req, res) {
+  if (isAdminAuthorized(req)) return true;
+  sendJson(res, 401, { error: "admin session required" });
+  return false;
+}
+
+function clientKey(req) {
+  const forwardedFor = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  return forwardedFor || req.socket.remoteAddress || "unknown";
+}
+
+function pinFailureRecord(req) {
+  const key = clientKey(req);
+  const now = Date.now();
+  const current = pinFailures.get(key);
+  if (!current || current.resetAt <= now) {
+    const fresh = { count: 0, resetAt: now + PIN_FAILURE_WINDOW_MS };
+    pinFailures.set(key, fresh);
+    return fresh;
+  }
+  return current;
+}
+
+function isPinLimited(req) {
+  return pinFailureRecord(req).count >= PIN_FAILURE_LIMIT;
+}
+
+function registerPinFailure(req) {
+  pinFailureRecord(req).count += 1;
+}
+
+function createAdminSession() {
+  const sessionToken = crypto.randomBytes(32).toString("hex");
+  const expiresAt = Date.now() + ADMIN_SESSION_TTL_MS;
+  adminSessions.set(sessionToken, { expiresAt });
+  return { sessionToken, expiresAt };
 }
 
 function readBody(req) {
@@ -236,9 +305,35 @@ async function handleApi(req, res, url) {
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/api/admin/login") {
+    if (!adminPin) {
+      sendJson(res, 503, { error: "admin pin is not configured" });
+      return;
+    }
+    if (isPinLimited(req)) {
+      sendJson(res, 429, { error: "too many pin attempts" });
+      return;
+    }
+    try {
+      const raw = await readBody(req);
+      const payload = JSON.parse(raw || "{}");
+      const pin = typeof payload.pin === "string" ? payload.pin.trim() : "";
+      if (!timingSafeEqualString(pin, adminPin)) {
+        registerPinFailure(req);
+        sendJson(res, 401, { error: "invalid pin" });
+        return;
+      }
+      const session = createAdminSession();
+      sendJson(res, 200, { ok: true, ...session, settings: publicSettings() });
+    } catch {
+      sendJson(res, 400, { error: "invalid json" });
+    }
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/admin/session") {
-    if (!assertAuthorized(req, res)) return;
-    sendJson(res, 200, { ok: true, tokenRequired: Boolean(activeToken()), settings: publicSettings() });
+    if (!assertAdminAuthorized(req, res)) return;
+    sendJson(res, 200, { ok: true, settings: publicSettings() });
     return;
   }
 
@@ -280,7 +375,7 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "PUT" && url.pathname === "/api/settings") {
-    if (!assertAuthorized(req, res)) return;
+    if (!assertAdminAuthorized(req, res)) return;
     try {
       const raw = await readBody(req);
       const settings = sanitizeSettings(JSON.parse(raw || "{}"));
@@ -293,7 +388,7 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "PUT" && url.pathname === "/api/admin/token") {
-    if (!assertAuthorized(req, res)) return;
+    if (!assertAdminAuthorized(req, res)) return;
     try {
       const raw = await readBody(req);
       const payload = JSON.parse(raw || "{}");

@@ -5,7 +5,10 @@ const coordsEl = document.querySelector("#coords");
 const distanceEl = document.querySelector("#distance");
 const modeLabelEl = document.querySelector("#modeLabel");
 const adminPanelEl = document.querySelector("#adminPanel");
-const tokenInput = document.querySelector("#tokenInput");
+const pinLockEl = document.querySelector("#pinLock");
+const pinFormEl = document.querySelector("#pinForm");
+const pinInput = document.querySelector("#pinInput");
+const pinFeedbackEl = document.querySelector("#pinFeedback");
 const dateInput = document.querySelector("#dateInput");
 const pollSelect = document.querySelector("#pollSelect");
 const publicPollSelect = document.querySelector("#publicPollSelect");
@@ -38,7 +41,7 @@ const hostname = window.location.hostname.toLowerCase();
 const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 const isAdminMode =
   hostname.startsWith("admin.") || (isLocalHost && new URLSearchParams(window.location.search).get("admin") === "1");
-const tokenStorageKey = "wonderingDashboardToken";
+const adminSessionStorageKey = "wonderingAdminSession";
 const MAP_COLORS = {
   paper: "#f7f6f1",
   paperDeep: "#e4e1d8",
@@ -93,16 +96,10 @@ map.touchZoomRotate.enableRotation();
 document.body.classList.toggle("is-admin", isAdminMode);
 document.body.classList.toggle("is-viewer", !isAdminMode);
 if (modeLabelEl) modeLabelEl.textContent = isAdminMode ? "Admin" : "Viewer";
-if (adminPanelEl) adminPanelEl.hidden = !isAdminMode;
-if (tokenInput) tokenInput.value = localStorage.getItem(tokenStorageKey) || "";
+setAdminUnlocked(false);
 
-document.querySelector("#saveTokenButton")?.addEventListener("click", () => {
-  localStorage.setItem(tokenStorageKey, tokenInput.value.trim());
-  adminMessage("Admin token saved.");
-  verifyAdminSession();
-  loadLocations();
-});
-
+pinFormEl?.addEventListener("submit", loginAdmin);
+document.querySelector("#lockAdminButton")?.addEventListener("click", lockAdmin);
 document.querySelector("#saveSettingsButton")?.addEventListener("click", saveAdminSettings);
 document.querySelector("#generateTokenButton")?.addEventListener("click", generateUploadToken);
 document.querySelector("#rotateTokenButton")?.addEventListener("click", rotateUploadToken);
@@ -129,13 +126,30 @@ verifyAdminSession();
 
 function headers() {
   if (!isAdminMode) return {};
-  const token = localStorage.getItem(tokenStorageKey) || "";
+  const token = sessionStorage.getItem(adminSessionStorageKey) || "";
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function setAdminUnlocked(unlocked) {
+  if (adminPanelEl) adminPanelEl.hidden = !isAdminMode || !unlocked;
+  if (pinLockEl) pinLockEl.hidden = !isAdminMode || unlocked;
+  document.body.classList.toggle("admin-unlocked", Boolean(isAdminMode && unlocked));
+  document.body.classList.toggle("admin-locked", Boolean(isAdminMode && !unlocked));
+  if (unlocked) {
+    pinInput?.blur();
+  } else if (isAdminMode) {
+    setTimeout(() => pinInput?.focus(), 50);
+  }
 }
 
 function adminMessage(message) {
   if (!adminFeedbackEl) return;
   adminFeedbackEl.textContent = message;
+}
+
+function pinMessage(message) {
+  if (!pinFeedbackEl) return;
+  pinFeedbackEl.textContent = message;
 }
 
 function applySettingsToForm() {
@@ -184,26 +198,74 @@ async function loadSettings() {
 
 async function verifyAdminSession() {
   if (!isAdminMode) return;
-  const token = localStorage.getItem(tokenStorageKey) || "";
+  const token = sessionStorage.getItem(adminSessionStorageKey) || "";
   if (!token) {
-    adminMessage("Enter the current upload token to unlock admin actions.");
+    setAdminUnlocked(false);
+    pinMessage("PIN is required.");
     return;
   }
 
   try {
     const res = await fetch("/api/admin/session", { headers: headers() });
     if (res.status === 401) {
-      adminMessage("Token rejected.");
+      lockAdmin("PIN session expired.");
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     appSettings = normalizeSettings(data.settings);
     applySettingsToForm();
+    setAdminUnlocked(true);
     adminMessage("Admin unlocked.");
   } catch {
-    adminMessage("Admin verification failed.");
+    lockAdmin("Admin verification failed.");
   }
+}
+
+async function loginAdmin(event) {
+  event?.preventDefault();
+  if (!isAdminMode) return;
+  const pin = (pinInput?.value || "").trim();
+  if (!pin) {
+    pinMessage("Enter PIN.");
+    return;
+  }
+
+  try {
+    pinMessage("Checking PIN...");
+    const res = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin }),
+    });
+    if (res.status === 401) {
+      pinMessage("Invalid PIN.");
+      return;
+    }
+    if (res.status === 429) {
+      pinMessage("Too many attempts. Wait and try again.");
+      return;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    sessionStorage.setItem(adminSessionStorageKey, data.sessionToken);
+    if (pinInput) pinInput.value = "";
+    appSettings = normalizeSettings(data.settings);
+    applySettingsToForm();
+    setAdminUnlocked(true);
+    adminMessage("Admin unlocked.");
+    loadLocations({ keepViewport: true });
+  } catch {
+    pinMessage("PIN login failed.");
+  }
+}
+
+function lockAdmin(message = "Admin locked.") {
+  if (!isAdminMode) return;
+  sessionStorage.removeItem(adminSessionStorageKey);
+  setAdminUnlocked(false);
+  pinMessage(message);
+  adminMessage("");
 }
 
 async function saveAdminSettings() {
@@ -221,7 +283,7 @@ async function saveAdminSettings() {
       body: JSON.stringify(settings),
     });
     if (res.status === 401) {
-      adminMessage("Token required to save settings.");
+      lockAdmin("PIN session expired.");
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -259,14 +321,11 @@ async function rotateUploadToken() {
       body: JSON.stringify({ token: nextToken }),
     });
     if (res.status === 401) {
-      adminMessage("Current token required before rotation.");
+      lockAdmin("PIN session expired.");
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    localStorage.setItem(tokenStorageKey, nextToken);
-    if (tokenInput) tokenInput.value = nextToken;
-    if (newTokenInput) newTokenInput.value = "";
-    adminMessage("Upload token rotated. Update the Android app token.");
+    adminMessage("Upload token rotated. Copy this token to the Android app.");
   } catch {
     adminMessage("Failed to rotate token.");
   }

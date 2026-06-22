@@ -41,12 +41,16 @@
             <strong id="distance">-</strong>
           </div>
         </div>
-        <div id="adminPanel" class="admin-panel" hidden>
-          <div class="admin-section">
-            <span>Admin token</span>
-            <input id="tokenInput" type="password" autocomplete="off" placeholder="Current token" />
-            <button id="saveTokenButton" type="button">Unlock</button>
+      </aside>
+      <section id="adminPanel" class="admin-panel" hidden>
+        <div class="admin-header">
+          <div>
+            <span>Admin Console</span>
+            <h2>Wondering Control</h2>
           </div>
+          <button id="lockAdminButton" type="button">Lock</button>
+        </div>
+        <div class="admin-grid">
           <div class="admin-section">
             <span>Viewer settings</span>
             <select id="publicPollSelect">
@@ -62,7 +66,7 @@
             <button id="saveSettingsButton" type="button">Save settings</button>
           </div>
           <div class="admin-section">
-            <span>Admin tools</span>
+            <span>Route tools</span>
             <input id="dateInput" type="date" />
             <select id="pollSelect">
               <option value="5000">Admin 5s</option>
@@ -70,15 +74,24 @@
               <option value="30000">Admin 30s</option>
             </select>
           </div>
-          <div class="admin-section">
-            <span>Rotate upload token</span>
+          <div class="admin-section admin-section-wide">
+            <span>Upload token</span>
             <input id="newTokenInput" type="password" autocomplete="new-password" placeholder="New token" />
             <button id="generateTokenButton" type="button">Generate</button>
             <button id="rotateTokenButton" type="button">Rotate token</button>
           </div>
-          <p id="adminFeedback" class="admin-feedback"></p>
         </div>
-      </aside>
+        <p id="adminFeedback" class="admin-feedback"></p>
+      </section>
+      <section id="pinLock" class="pin-lock" hidden>
+        <form id="pinForm" class="pin-card">
+          <span>Admin access</span>
+          <h2>Enter PIN</h2>
+          <input id="pinInput" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN" />
+          <button id="pinSubmitButton" type="submit">Unlock</button>
+          <p id="pinFeedback" class="admin-feedback"></p>
+        </form>
+      </section>
     </main>
     <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
     <script src="/app.js"></script>
