@@ -4,6 +4,7 @@ const lastSeenEl = document.querySelector("#lastSeen");
 const coordsEl = document.querySelector("#coords");
 const distanceEl = document.querySelector("#distance");
 const modeLabelEl = document.querySelector("#modeLabel");
+const locationStateDotEl = document.querySelector("#locationStateDot");
 const adminPanelEl = document.querySelector("#adminPanel");
 const pinLockEl = document.querySelector("#pinLock");
 const pinFormEl = document.querySelector("#pinForm");
@@ -80,7 +81,6 @@ let pollTimer = null;
 let marker = null;
 let markerAnimation = null;
 let latestTrackedLngLat = null;
-let hasFitRoute = false;
 let mapReady = false;
 let appSettings = { ...DEFAULT_SETTINGS };
 let viewerTotalViewMs = 0;
@@ -113,7 +113,7 @@ map.dragRotate.enable();
 map.touchZoomRotate.enableRotation();
 document.body.classList.toggle("is-admin", isAdminMode);
 document.body.classList.toggle("is-viewer", !isAdminMode);
-if (modeLabelEl) modeLabelEl.textContent = isAdminMode ? "Admin" : "Viewer";
+if (modeLabelEl) modeLabelEl.textContent = isAdminMode ? "Admin" : "Viewing Time";
 setAdminUnlocked(false);
 if (!isAdminMode) startViewerStats();
 
@@ -126,7 +126,6 @@ document.querySelector("#rotateTokenButton")?.addEventListener("click", rotateUp
 locateCurrentButton?.addEventListener("click", focusTrackedLocation);
 
 dateInput?.addEventListener("change", () => {
-  hasFitRoute = false;
   loadLocations();
 });
 pollSelect?.addEventListener("change", resetPolling);
@@ -408,7 +407,7 @@ function formatDuration(ms) {
 
 function renderViewerWatchTime() {
   if (isAdminMode || !statusEl) return;
-  statusEl.textContent = `TOTAL ${formatDuration(viewerTotalViewMs + viewerPendingViewMs)}`;
+  statusEl.textContent = formatDuration(viewerTotalViewMs + viewerPendingViewMs);
   signalDotEl?.classList.remove("live");
 }
 
@@ -505,6 +504,12 @@ function setOperationalStatus(text, live = false) {
   if (!isAdminMode) return;
   statusEl.textContent = text;
   signalDotEl.classList.toggle("live", Boolean(live));
+}
+
+function setLocationSharingIndicator(isOn) {
+  if (!locationStateDotEl) return;
+  locationStateDotEl.classList.toggle("is-on", Boolean(isOn));
+  locationStateDotEl.setAttribute("aria-label", isOn ? "Location sharing on" : "Location sharing off");
 }
 
 function fmtClock(ms) {
@@ -1121,38 +1126,12 @@ function focusTrackedLocation() {
     duration: 850,
     essential: true,
   });
-  hasFitRoute = true;
-}
-
-function fitViewport(segments, latestPoint, keepViewport) {
-  if (!mapReady || keepViewport) return;
-  resizeMapNow();
-  const latestLngLat = toLngLat(latestPoint);
-  const currentBounds = map.getBounds();
-  if (hasFitRoute && currentBounds.contains(latestLngLat)) return;
-
-  const bounds = new maplibregl.LngLatBounds(latestLngLat, latestLngLat);
-  segments.flat().forEach((point) => bounds.extend(point));
-
-  if (segments.length > 0) {
-    const padding = isAdminMode ? { top: 106, right: 58, bottom: 76, left: 58 } : 80;
-    map.fitBounds(bounds, { padding, maxZoom: 17.2, duration: 900 });
-    setTimeout(() => map.easeTo({ pitch: DEFAULT_CAMERA.pitch, bearing: DEFAULT_CAMERA.bearing, duration: 500 }), 920);
-  } else {
-    map.easeTo({
-      center: latestLngLat,
-      zoom: DEFAULT_CAMERA.zoom,
-      pitch: DEFAULT_CAMERA.pitch,
-      bearing: DEFAULT_CAMERA.bearing,
-      duration: 800,
-    });
-  }
-  hasFitRoute = true;
 }
 
 function updateFreshness(latest) {
   if (latest.raw_status === "sharing_off") {
     setOperationalStatus("OFF", false);
+    setLocationSharingIndicator(false);
     mapInstructionEl.textContent = "위치 공유 꺼짐";
     mapSubStatusEl.textContent = `${latest.deviceName || "Android"} · ${fmtClock(latest.timestamp)}`;
     return;
@@ -1160,6 +1139,7 @@ function updateFreshness(latest) {
 
   const isStale = Date.now() - latest.timestamp > 120000 || latest.raw_status !== "valid";
   setOperationalStatus(isStale ? "OFFLINE" : "LIVE", !isStale);
+  setLocationSharingIndicator(!isStale);
   mapInstructionEl.textContent = isStale ? "새 위치 수신 대기 중" : "실시간 위치 추적 중";
   mapSubStatusEl.textContent = `${latest.deviceName || "Android"} · ${fmtClock(latest.timestamp)}`;
 }
@@ -1173,6 +1153,7 @@ function render(records, options = {}) {
     latestTrackedLngLat = null;
     setLocateButtonEnabled(false);
     setOperationalStatus("WAITING", false);
+    setLocationSharingIndicator(false);
     mapInstructionEl.textContent = "위치 수신 대기";
     mapSubStatusEl.textContent = "원본 좌표 저장 · 표시 경로 보정";
     lastSeenEl.textContent = "--:--:--";
@@ -1204,7 +1185,6 @@ function render(records, options = {}) {
 
   animateMarkerTo(latestTrackedLngLat);
   updateAccuracyArea(latestDisplay);
-  fitViewport(segments, latestDisplay, options.keepViewport);
 }
 
 async function loadLocations(options = {}) {

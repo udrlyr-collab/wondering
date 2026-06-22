@@ -54,6 +54,8 @@
 - Public viewer mode must not show the floating map status card.
 - Public viewer mode may show one compact current-location map control.
 - Current-location map control must align to the same right edge as MapLibre controls and use a target-style icon.
+- Do not auto-zoom or auto-pan when new location records arrive; only the current-location control may move the camera.
+- Show location sharing ON/OFF next to `Last Updated` with a small green/gray dot.
 - Mobile public viewer HUD must stay compact and should not consume more vertical space than needed for key readings.
 - Administrator controls must appear only on the admin host or local admin test mode after PIN login.
 - Admin controls should be a separated narrow side workspace; keep the live map dominant in admin mode.
