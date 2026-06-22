@@ -1,0 +1,580 @@
+@font-face {
+  font-family: "Wanted Sans";
+  src: url("/fonts/WantedSansVariable.woff2") format("woff2");
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+  --paper: #efeee9;
+  --ink: #050505;
+  --muted: #66655f;
+  --hairline: #111;
+  --signal: #d8ff3d;
+  --field: rgba(5, 5, 5, 0.045);
+  --map-bg: #e5e4de;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: "Wanted Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  letter-spacing: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  min-height: 42px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0 16px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+button:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.dashboard {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 74px minmax(370px, 0.36fr) minmax(0, 0.64fr);
+  background: var(--paper);
+}
+
+.rail {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  align-items: center;
+  justify-items: center;
+  padding: 28px 0;
+  border-right: 2px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.rail span,
+.rail strong {
+  writing-mode: vertical-rl;
+  text-transform: uppercase;
+}
+
+.rail span {
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.rail strong {
+  min-height: 64px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--signal);
+  color: var(--ink);
+  padding: 12px 8px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.controlBoard {
+  min-width: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(128px, 0.38fr) auto auto auto;
+  gap: 12px;
+  padding: clamp(24px, 4vw, 38px) clamp(22px, 3vw, 34px);
+  overflow: hidden;
+}
+
+.boardHeader {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--ink);
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+h1,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(38px, 4vw, 58px);
+  font-weight: 900;
+  line-height: 0.9;
+}
+
+.dateBadge {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 84px 1fr;
+  justify-items: center;
+  align-items: stretch;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.dateBadge span {
+  width: 100%;
+  display: grid;
+  align-items: center;
+  padding: 6px 4px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 11px;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.dateBadge strong {
+  font-size: 38px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.fixBlock {
+  align-self: stretch;
+  display: grid;
+  align-content: end;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--ink);
+}
+
+.blockLabel,
+.coordinateBlock span,
+.ledger span,
+.controls span,
+.mapHeader span,
+.mapFooter span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.fixBlock strong {
+  font-size: clamp(58px, 6.8vw, 96px);
+  font-weight: 900;
+  line-height: 0.84;
+  font-variant-numeric: tabular-nums;
+}
+
+.fixBlock p {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--signal);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.coordinateBlock {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--ink);
+}
+
+.coordinateBlock strong {
+  font-size: clamp(20px, 1.8vw, 30px);
+  font-weight: 900;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.ledger {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 2px solid var(--ink);
+}
+
+.ledger div {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 0;
+  border-bottom: 2px solid var(--ink);
+}
+
+.ledger div + div {
+  padding-left: 16px;
+  border-left: 2px solid var(--ink);
+}
+
+.ledger strong {
+  font-size: clamp(24px, 2.3vw, 38px);
+  font-weight: 900;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 132px 88px;
+  align-items: end;
+  gap: 8px;
+}
+
+.controls label {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.controls input,
+.controls select {
+  width: 100%;
+  min-height: 34px;
+  border: 0;
+  border-bottom: 2px solid var(--ink);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  padding: 0 2px;
+  font-weight: 850;
+}
+
+.controls input:focus,
+.controls select:focus {
+  outline: 0;
+  background: var(--field);
+}
+
+.controls input::placeholder {
+  color: var(--muted);
+}
+
+.actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.actions button:last-child {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.actions button:last-child:hover {
+  background: var(--signal);
+  color: var(--ink);
+}
+
+.mapStage {
+  min-width: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 16px;
+  padding: clamp(24px, 4vw, 48px) clamp(24px, 4vw, 48px) clamp(24px, 4vw, 48px) 0;
+}
+
+.mapHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 22px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--ink);
+}
+
+.mapHeader div {
+  display: grid;
+  gap: 6px;
+}
+
+.mapHeader strong {
+  font-size: clamp(46px, 5.6vw, 96px);
+  font-weight: 900;
+  line-height: 0.82;
+}
+
+.mapHeader p {
+  max-width: 310px;
+  padding-bottom: 2px;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.25;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.mapShell {
+  position: relative;
+  min-height: 0;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: var(--map-bg);
+  overflow: hidden;
+}
+
+.mapShell::before {
+  position: absolute;
+  inset: 16px;
+  z-index: 500;
+  content: "";
+  border: 2px solid rgba(5, 5, 5, 0.15);
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+.mapShell::after {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 501;
+  width: 92px;
+  height: 10px;
+  content: "";
+  border-top: 2px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
+  pointer-events: none;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+}
+
+.leaflet-container {
+  background: var(--map-bg);
+  font-family: inherit;
+}
+
+.leaflet-tile-pane {
+  filter: grayscale(1) contrast(1.12) brightness(1.04);
+}
+
+.leaflet-control-attribution {
+  background: rgba(239, 238, 233, 0.82) !important;
+  color: var(--ink) !important;
+  font-weight: 700;
+}
+
+.leaflet-control-zoom {
+  border: 2px solid var(--ink) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+  box-shadow: none !important;
+}
+
+.leaflet-control-zoom a {
+  border-color: var(--ink) !important;
+  background: var(--paper) !important;
+  color: var(--ink) !important;
+  font-weight: 900;
+}
+
+.currentMarkerWrap {
+  background: transparent;
+  border: 0;
+}
+
+.currentMarker {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border: 3px solid var(--paper);
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
+.currentMarker::before {
+  position: absolute;
+  inset: 3px;
+  content: "";
+  border-radius: 50%;
+  background: var(--signal);
+}
+
+.currentMarker::after {
+  position: absolute;
+  inset: -8px;
+  content: "";
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  animation: markerPulse 1.8s ease-out infinite;
+}
+
+@keyframes markerPulse {
+  0% {
+    transform: scale(0.72);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
+.mapFooter {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 2px solid var(--ink);
+}
+
+.mapFooter span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.warning {
+  background: var(--ink) !important;
+  color: var(--paper) !important;
+}
+
+@media (max-width: 1120px) {
+  body {
+    overflow: auto;
+  }
+
+  .dashboard {
+    min-height: 100%;
+    grid-template-columns: 64px minmax(0, 1fr);
+    overflow: auto;
+  }
+
+  .mapStage {
+    grid-column: 1 / -1;
+    min-height: 76vh;
+    padding: 0 24px 24px 88px;
+  }
+}
+
+@media (max-width: 680px) {
+  .dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .rail {
+    min-height: 58px;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: 1fr;
+    padding: 0 22px;
+    border-right: 0;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .rail span,
+  .rail strong {
+    writing-mode: horizontal-tb;
+  }
+
+  .rail span {
+    justify-self: start;
+  }
+
+  .rail strong {
+    min-height: 0;
+    padding: 7px 12px;
+  }
+
+  .controlBoard {
+    height: auto;
+    overflow: visible;
+    gap: 16px;
+    padding: 22px;
+  }
+
+  .boardHeader {
+    grid-template-columns: 1fr;
+  }
+
+  .dateBadge {
+    width: 100%;
+    grid-template-columns: 1fr 70px 1fr;
+    align-items: stretch;
+  }
+
+  .dateBadge span {
+    display: grid;
+    align-items: center;
+  }
+
+  .fixBlock strong {
+    font-size: clamp(76px, 24vw, 118px);
+  }
+
+  .ledger {
+    grid-template-columns: 1fr;
+  }
+
+  .ledger div + div {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .controls {
+    grid-template-columns: 1fr;
+  }
+
+  .mapStage {
+    min-height: 78vh;
+    padding: 0 22px 22px;
+  }
+
+  .mapHeader {
+    display: grid;
+  }
+
+  .mapHeader p {
+    max-width: none;
+    text-align: left;
+  }
+
+  .mapFooter {
+    grid-template-columns: 1fr;
+  }
+}

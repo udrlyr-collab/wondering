@@ -1,0 +1,23 @@
+# Android / Gradle
+.gradle/
+build/
+app/build/
+local.properties
+
+# IDE
+.idea/
+*.iml
+.vs/
+
+# Generated packages
+*.apk
+*.aab
+*.ap_
+
+# Web runtime data
+web/data/
+web/.env
+
+# Local verification artifacts
+.playwright-cli/
+output/
