@@ -46,7 +46,7 @@ button, input, select {
 
 body.is-admin .dashboard {
   display: grid;
-  grid-template-columns: minmax(380px, 0.92fr) minmax(460px, 1.08fr);
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
   grid-template-rows: minmax(0, 1fr) 118px;
 }
 
@@ -161,17 +161,17 @@ body.is-viewer #status {
 
 .locate-control {
   position: absolute;
-  right: 14px;
-  bottom: 116px;
+  right: 10px;
+  bottom: 152px;
   z-index: 5;
   width: 44px;
   height: 44px;
   display: none;
   place-items: center;
-  border: 1px solid var(--border-rule);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.94);
-  color: var(--route-accent);
+  border: 1px solid rgba(16, 16, 16, 0.72);
+  border-radius: 13px;
+  background: #df8846;
+  color: #ffffff;
   box-shadow: 0 10px 22px rgba(16, 16, 16, 0.16);
   cursor: pointer;
   transition:
@@ -182,7 +182,7 @@ body.is-viewer #status {
 }
 
 .locate-control:hover {
-  background: #ffffff;
+  background: #ea9450;
   transform: translateY(-1px);
 }
 
@@ -193,25 +193,31 @@ body.is-viewer #status {
 .locate-control:disabled {
   cursor: default;
   opacity: 0.46;
-  color: var(--text-muted);
+  color: #ffffff;
   transform: none;
 }
 
 .locate-control-icon {
   position: relative;
-  width: 21px;
-  height: 21px;
+  width: 28px;
+  height: 28px;
   display: block;
-  border: 2px solid currentColor;
-  border-radius: 50%;
   background:
-    linear-gradient(currentColor, currentColor) center / 2px 100% no-repeat,
-    linear-gradient(90deg, currentColor, currentColor) center / 100% 2px no-repeat;
+    linear-gradient(currentColor, currentColor) center / 3px 100% no-repeat,
+    linear-gradient(90deg, currentColor, currentColor) center / 100% 3px no-repeat;
+}
+
+.locate-control-icon::before {
+  position: absolute;
+  inset: 6px;
+  content: "";
+  border: 3px solid currentColor;
+  border-radius: 50%;
 }
 
 .locate-control-icon::after {
   position: absolute;
-  inset: 5px;
+  inset: 11px;
   content: "";
   border-radius: 50%;
   background: currentColor;
@@ -330,7 +336,7 @@ body.is-viewer #status {
   grid-row: 1 / 3;
   width: auto;
   min-width: 0;
-  padding: 22px 28px;
+  padding: 18px 20px;
   border-left: 2px solid var(--border-rule);
   overflow-y: auto;
   background: var(--bg-panel);
@@ -366,7 +372,7 @@ body.is-viewer #status {
 
 .admin-header h2 {
   margin: 4px 0 0;
-  font-size: 32px;
+  font-size: 28px;
   line-height: 0.95;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -386,24 +392,24 @@ body.is-viewer #status {
 
 .admin-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: 1fr;
+  gap: 12px;
   padding-top: 16px;
 }
 
 .admin-section {
-  grid-template-columns: minmax(0, 1fr) 140px;
+  grid-template-columns: minmax(0, 1fr) 120px;
   gap: 8px;
   align-content: start;
-  padding: 14px;
+  padding: 12px;
   border: 1px solid var(--border-rule);
   border-radius: 8px;
   background: #fbfaf6;
 }
 
 .admin-section-wide {
-  grid-column: 1 / -1;
-  grid-template-columns: minmax(0, 1fr) 92px 120px 130px;
+  grid-column: auto;
+  grid-template-columns: minmax(0, 1fr) 78px;
 }
 
 .admin-section > span,
@@ -673,8 +679,8 @@ body.is-viewer #status {
   }
 
   .locate-control {
-    right: 12px;
-    bottom: 110px;
+    right: 10px;
+    bottom: 152px;
     width: 42px;
     height: 42px;
   }

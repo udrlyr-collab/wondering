@@ -88,6 +88,7 @@ let viewerPendingViewMs = 0;
 let viewerLastViewTickAt = Date.now();
 let viewerLastHeartbeatAt = Date.now();
 let viewerTickTimer = null;
+let resizeTimer = null;
 
 const emptyFeatureCollection = { type: "FeatureCollection", features: [] };
 const transparentIcon = {
@@ -135,6 +136,7 @@ map.on("rotateend", updateMapDiagnostics);
 map.on("idle", updateMapDiagnostics);
 map.on("style.load", initializeMap);
 map.on("load", initializeMap);
+window.addEventListener("resize", scheduleMapResize);
 map.on("styleimagemissing", (event) => {
   if (!map.hasImage(event.id)) map.addImage(event.id, transparentIcon);
 });
@@ -160,6 +162,20 @@ function setAdminUnlocked(unlocked) {
   } else if (isAdminMode) {
     setTimeout(() => pinInput?.focus(), 50);
   }
+  scheduleMapResize();
+}
+
+function scheduleMapResize() {
+  if (resizeTimer) clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    resizeMapNow();
+  }, 80);
+}
+
+function resizeMapNow() {
+  if (!map) return;
+  map.resize();
+  updateMapDiagnostics();
 }
 
 function adminMessage(message) {
@@ -622,11 +638,13 @@ function applyWonderingMapTheme() {
 
 function initializeMap() {
   if (mapReady) {
+    scheduleMapResize();
     updateMapDiagnostics();
     return;
   }
   if (!map.getStyle()?.layers?.length || !map.getSource("openmaptiles")) return;
   mapReady = true;
+  scheduleMapResize();
   setupMapLayers();
   loadLocations();
   resetPolling();
@@ -1093,6 +1111,7 @@ function setLocateButtonEnabled(enabled) {
 
 function focusTrackedLocation() {
   if (!mapReady || !latestTrackedLngLat) return;
+  resizeMapNow();
   const zoom = Math.min(Math.max(map.getZoom(), CURRENT_LOCATION_ZOOM), CURRENT_LOCATION_MAX_ZOOM);
   map.easeTo({
     center: latestTrackedLngLat,
@@ -1107,6 +1126,7 @@ function focusTrackedLocation() {
 
 function fitViewport(segments, latestPoint, keepViewport) {
   if (!mapReady || keepViewport) return;
+  resizeMapNow();
   const latestLngLat = toLngLat(latestPoint);
   const currentBounds = map.getBounds();
   if (hasFitRoute && currentBounds.contains(latestLngLat)) return;
@@ -1115,7 +1135,8 @@ function fitViewport(segments, latestPoint, keepViewport) {
   segments.flat().forEach((point) => bounds.extend(point));
 
   if (segments.length > 0) {
-    map.fitBounds(bounds, { padding: 80, maxZoom: 17.2, duration: 900 });
+    const padding = isAdminMode ? { top: 106, right: 58, bottom: 76, left: 58 } : 80;
+    map.fitBounds(bounds, { padding, maxZoom: 17.2, duration: 900 });
     setTimeout(() => map.easeTo({ pitch: DEFAULT_CAMERA.pitch, bearing: DEFAULT_CAMERA.bearing, duration: 500 }), 920);
   } else {
     map.easeTo({

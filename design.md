@@ -53,9 +53,10 @@
 - Public viewer mode must show only the map, status, and location readings.
 - Public viewer mode must not show the floating map status card.
 - Public viewer mode may show one compact current-location map control.
+- Current-location map control must align to the same right edge as MapLibre controls and use a target-style icon.
 - Mobile public viewer HUD must stay compact and should not consume more vertical space than needed for key readings.
 - Administrator controls must appear only on the admin host or local admin test mode after PIN login.
-- Admin controls should be a large separated workspace; keep the live viewer smaller in admin mode.
+- Admin controls should be a separated narrow side workspace; keep the live map dominant in admin mode.
 - Last updated time, current coordinate, distance, and total public viewer watch time must be visible.
 - Do not show a separate movement-history list in the dashboard.
 - Keep raw point details in API data or developer tooling, not in the main UI.
