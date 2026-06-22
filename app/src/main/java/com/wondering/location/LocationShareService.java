@@ -68,6 +68,9 @@ public class LocationShareService extends Service {
     @Override
     public void onDestroy() {
         if (callback != null) fusedLocation.removeLocationUpdates(callback);
+        if (prefs != null && !prefs.getBoolean(SharePrefs.KEY_ENABLED, false)) {
+            ShareStateUploader.uploadAsync(this, "sharing_off", distanceM);
+        }
         executor.shutdownNow();
         super.onDestroy();
     }

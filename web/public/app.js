@@ -359,6 +359,8 @@ function rawStatusLabel(status) {
     duplicate: "duplicate",
     jump_suspected: "jump suspected",
     time_reversed: "time reversed",
+    sharing_off: "sharing off",
+    invalid_payload: "invalid payload",
   }[status] || status || "unknown";
 }
 
@@ -628,6 +630,20 @@ function toLngLat(point) {
   return [point.longitude, point.latitude];
 }
 
+function hasCoordinates(point) {
+  if (!point) return false;
+  const latitude = Number(point.latitude);
+  const longitude = Number(point.longitude);
+  return (
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    longitude >= -180 &&
+    longitude <= 180
+  );
+}
+
 function distanceMeters(a, b) {
   const aLng = Array.isArray(a) ? a[0] : a.longitude;
   const aLat = Array.isArray(a) ? a[1] : a.latitude;
@@ -735,25 +751,30 @@ function chaikin(segment, iterations = 2) {
 }
 
 function buildDisplaySegments(records) {
-  const valid = records
-    .filter((record) => record.raw_status === "valid")
-    .sort((a, b) => a.timestamp - b.timestamp);
-  if (valid.length === 0) return [];
-
   const rawSegments = [];
-  let current = [toLngLat(valid[0])];
+  let current = [];
+  const sorted = [...records].sort((a, b) => a.timestamp - b.timestamp);
 
-  for (let i = 1; i < valid.length; i += 1) {
-    const point = toLngLat(valid[i]);
-    const previous = current[current.length - 1];
-    if (distanceMeters(previous, point) > MAX_CONNECTED_GAP_M) {
-      rawSegments.push(current);
-      current = [point];
-    } else {
-      current.push(point);
+  for (const record of sorted) {
+    if (record.raw_status === "sharing_off") {
+      if (current.length > 0) rawSegments.push(current);
+      current = [];
+      continue;
     }
+
+    if (record.raw_status !== "valid" || !hasCoordinates(record)) continue;
+
+    const point = toLngLat(record);
+    const previous = current[current.length - 1];
+    if (previous && distanceMeters(previous, point) > MAX_CONNECTED_GAP_M) {
+      if (current.length > 0) rawSegments.push(current);
+      current = [point];
+      continue;
+    }
+    current.push(point);
   }
-  rawSegments.push(current);
+
+  if (current.length > 0) rawSegments.push(current);
 
   return rawSegments
     .map((segment) => chaikin(densifySegment(simplifySegment(segment))))
@@ -775,7 +796,7 @@ function invalidGeoJson(records) {
   return {
     type: "FeatureCollection",
     features: records
-      .filter((record) => record.raw_status !== "valid")
+      .filter((record) => record.raw_status !== "valid" && hasCoordinates(record))
       .slice(-MAX_INVALID_MARKERS)
       .map((record) => ({
         type: "Feature",
@@ -907,6 +928,14 @@ function fitViewport(segments, latestPoint, keepViewport) {
 }
 
 function updateFreshness(latest) {
+  if (latest.raw_status === "sharing_off") {
+    statusEl.textContent = "OFF";
+    mapInstructionEl.textContent = "위치 공유 꺼짐";
+    mapSubStatusEl.textContent = `${latest.deviceName || "Android"} · ${fmtClock(latest.timestamp)}`;
+    signalDotEl.classList.remove("live");
+    return;
+  }
+
   const isStale = Date.now() - latest.timestamp > 120000 || latest.raw_status !== "valid";
   statusEl.textContent = isStale ? "OFFLINE" : "LIVE";
   mapInstructionEl.textContent = isStale ? "새 위치 수신 대기 중" : "실시간 위치 추적 중";
@@ -917,9 +946,9 @@ function updateFreshness(latest) {
 function render(records, options = {}) {
   const latestRaw = records.at(-1);
   const latestValid = [...records].reverse().find((record) => record.raw_status === "valid");
-  const latestDisplay = latestValid || latestRaw;
+  const latestDisplay = latestValid || (hasCoordinates(latestRaw) ? latestRaw : null);
 
-  if (!latestRaw || !latestDisplay) {
+  if (!latestRaw) {
     latestTrackedLngLat = null;
     setLocateButtonEnabled(false);
     statusEl.textContent = "WAITING";
@@ -935,14 +964,24 @@ function render(records, options = {}) {
 
   updateFreshness(latestRaw);
   lastSeenEl.textContent = fmtClock(latestRaw.timestamp);
-  coordsEl.textContent = `${latestDisplay.latitude.toFixed(5)} / ${latestDisplay.longitude.toFixed(5)}`;
   distanceEl.textContent = fmtDistance(latestRaw.distanceMeters);
-  latestTrackedLngLat = toLngLat(latestDisplay);
-  setLocateButtonEnabled(true);
 
   const segments = buildDisplaySegments(records);
   drawRoute(segments);
   drawInvalidPoints(shouldShowInvalidPoints() ? records : []);
+
+  if (!latestDisplay) {
+    coordsEl.textContent = "- / -";
+    latestTrackedLngLat = null;
+    setLocateButtonEnabled(false);
+    updateAccuracyArea({ latitude: 0, longitude: 0, accuracyMeters: null });
+    return;
+  }
+
+  coordsEl.textContent = `${latestDisplay.latitude.toFixed(5)} / ${latestDisplay.longitude.toFixed(5)}`;
+  latestTrackedLngLat = toLngLat(latestDisplay);
+  setLocateButtonEnabled(true);
+
   animateMarkerTo(latestTrackedLngLat);
   updateAccuracyArea(latestDisplay);
   fitViewport(segments, latestDisplay, options.keepViewport);

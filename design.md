@@ -20,6 +20,8 @@
 ## Data Rules
 
 - Server stores raw Android records append-only in `web/data/locations.jsonl`.
+- Android must send a `sharing_off` event when location sharing is intentionally disabled.
+- `sharing_off` is a route break marker and must not be stored as a GPS coordinate.
 - Display route geometry is derived at read/render time only.
 - Do not write simplified, interpolated, or smoothed points back to storage.
 - API responses may add `raw_status`; stored raw records remain unchanged.

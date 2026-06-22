@@ -19,6 +19,7 @@ const DISPLAY_RULES = {
   jumpDistanceM: 1000,
   maxSpeedMps: 55,
 };
+const SHARE_STATE_EVENTS = new Set(["sharing_off"]);
 
 const DEFAULT_PUBLIC_SETTINGS = {
   publicPollMs: 10000,
@@ -206,6 +207,26 @@ function distanceMeters(a, b) {
   return 2 * radius * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 }
 
+function dateFromTimestamp(timestamp) {
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function normalizeShareStateEvent(value) {
+  const event = String(value || "").trim().toLowerCase();
+  return SHARE_STATE_EVENTS.has(event) ? event : "";
+}
+
+function hasCoordinates(point) {
+  return (
+    Number.isFinite(Number(point.latitude)) &&
+    Number.isFinite(Number(point.longitude)) &&
+    Number(point.latitude) >= -90 &&
+    Number(point.latitude) <= 90 &&
+    Number(point.longitude) >= -180 &&
+    Number(point.longitude) <= 180
+  );
+}
+
 function withRawStatus(records) {
   let previousRaw = null;
   let previousValid = null;
@@ -213,6 +234,32 @@ function withRawStatus(records) {
   return records.map((record) => {
     const point = { ...record };
     const reasons = [];
+    const event = normalizeShareStateEvent(point.event);
+
+    if (event) {
+      if (previousRaw && point.timestamp < previousRaw.timestamp) reasons.push("time_reversed");
+      point.recordType = "event";
+      point.event = event;
+      point.raw_status = event;
+      point.raw_status_reasons = reasons;
+      point.accuracyMeters = null;
+      point.speedMps = null;
+      previousRaw = point;
+      previousValid = null;
+      return point;
+    }
+
+    if (!hasCoordinates(point)) {
+      if (previousRaw && point.timestamp < previousRaw.timestamp) reasons.push("time_reversed");
+      reasons.push("invalid_payload");
+      point.raw_status = reasons[0];
+      point.raw_status_reasons = reasons;
+      point.accuracyMeters = null;
+      point.speedMps = null;
+      previousRaw = point;
+      return point;
+    }
+
     const accuracyMeters = toFiniteNumber(point.accuracyMeters ?? point.accuracy);
     const speedMps = toFiniteNumber(point.speedMps ?? point.speed);
 
@@ -245,6 +292,9 @@ function withRawStatus(records) {
 }
 
 function normalizePoint(input) {
+  const event = normalizeShareStateEvent(input.event);
+  if (event) return normalizeShareState(input, event);
+
   const latitude = Number(input.latitude);
   const longitude = Number(input.longitude);
   const timestamp = Number(input.timestamp || Date.now());
@@ -267,6 +317,24 @@ function normalizePoint(input) {
     accuracyMeters,
     speedMps,
     steps: Number(input.steps || 0),
+    distanceMeters: Number(input.distanceMeters || 0),
+  };
+}
+
+function normalizeShareState(input, event) {
+  const timestamp = Number(input.timestamp || Date.now());
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return null;
+
+  return {
+    id: `${timestamp}-${Math.random().toString(36).slice(2, 10)}`,
+    serverReceivedAt: Date.now(),
+    recordType: "event",
+    event,
+    deviceId: String(input.deviceId || "android"),
+    deviceName: String(input.deviceName || "Android"),
+    timestamp,
+    date: String(input.date || dateFromTimestamp(timestamp)),
+    source: String(input.source || "share_state"),
     distanceMeters: Number(input.distanceMeters || 0),
   };
 }
