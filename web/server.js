@@ -11,6 +11,7 @@ const dataDir = path.join(__dirname, "data");
 const dataFile = path.join(dataDir, "locations.jsonl");
 const settingsFile = path.join(dataDir, "settings.json");
 const authFile = path.join(dataDir, "auth.json");
+const viewerStatsFile = path.join(dataDir, "viewer-stats.json");
 
 const DISPLAY_RULES = {
   maxAccuracyM: 50,
@@ -29,6 +30,7 @@ const DEFAULT_PUBLIC_SETTINGS = {
 const ADMIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const PIN_FAILURE_WINDOW_MS = 5 * 60 * 1000;
 const PIN_FAILURE_LIMIT = 10;
+const MAX_VIEWER_HEARTBEAT_MS = 60000;
 const adminSessions = new Map();
 const pinFailures = new Map();
 
@@ -93,6 +95,29 @@ function isAuthorized(req) {
 function publicSettings() {
   const saved = readJsonFile(settingsFile, {});
   return sanitizeSettings(saved);
+}
+
+function viewerStats() {
+  const saved = readJsonFile(viewerStatsFile, {});
+  const totalViewMs = Number(saved.totalViewMs);
+  const updatedAt = Number(saved.updatedAt);
+  return {
+    totalViewMs: Number.isFinite(totalViewMs) ? Math.max(0, Math.floor(totalViewMs)) : 0,
+    updatedAt: Number.isFinite(updatedAt) ? updatedAt : null,
+  };
+}
+
+function recordViewerHeartbeat(durationMs) {
+  const safeDurationMs = Number.isFinite(durationMs)
+    ? Math.max(0, Math.min(MAX_VIEWER_HEARTBEAT_MS, Math.floor(durationMs)))
+    : 0;
+  const stats = viewerStats();
+  if (safeDurationMs > 0) {
+    stats.totalViewMs += safeDurationMs;
+    stats.updatedAt = Date.now();
+    writeJsonFile(viewerStatsFile, stats);
+  }
+  return stats;
 }
 
 function sanitizeSettings(input = {}) {
@@ -380,6 +405,23 @@ async function handleApi(req, res, url) {
 
   if (req.method === "GET" && url.pathname === "/api/settings") {
     sendJson(res, 200, { settings: publicSettings() });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/viewer-stats") {
+    sendJson(res, 200, { stats: viewerStats() });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/viewer-heartbeat") {
+    try {
+      const raw = await readBody(req);
+      const payload = JSON.parse(raw || "{}");
+      const durationMs = Number(payload.durationMs);
+      sendJson(res, 200, { ok: true, stats: recordViewerHeartbeat(durationMs) });
+    } catch {
+      sendJson(res, 400, { error: "invalid json" });
+    }
     return;
   }
 

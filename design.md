@@ -13,7 +13,7 @@
 
 - Do not increase GPS frequency only for prettier web rendering.
 - Default upload interval is 60 seconds.
-- Allowed upload intervals are 15 seconds, 60 seconds, and 5 minutes.
+- Allowed upload intervals are 5 seconds, 10 seconds, 15 seconds, 60 seconds, 5 minutes, and a clamped custom value.
 - Prefer balanced power accuracy for 60 seconds and longer intervals.
 - Failed uploads must not retry in a tight loop.
 
@@ -56,7 +56,7 @@
 - Mobile public viewer HUD must stay compact and should not consume more vertical space than needed for key readings.
 - Administrator controls must appear only on the admin host or local admin test mode after PIN login.
 - Admin controls should be a large separated workspace; keep the live viewer smaller in admin mode.
-- Last update time, current coordinate, distance, and valid/raw point count must be visible.
+- Last updated time, current coordinate, distance, and total public viewer watch time must be visible.
 - Do not show a separate movement-history list in the dashboard.
 - Keep raw point details in API data or developer tooling, not in the main UI.
 - Use local Wanted Sans from `web/public/fonts/WantedSansVariable.woff2`.
@@ -68,7 +68,7 @@
 - Use restrained map color diversity for geographic readability: cyan water, green parks/woodland, warm residential areas, warm arterial roads, and muted rail/transit lines.
 - 3D buildings must support depth without becoming decorative; use light building faces with subtle gray-green shadows and no heavy base outlines.
 - Use pitch, bearing, and building extrusion to create depth.
-- Use strong operational typography for last received time, coordinate, and distance.
+- Use strong operational typography for last updated time, coordinate, distance, and viewer watch time.
 - Keep the map as the dominant operational surface.
 - Do not add decorative glow, ornamental imagery, or unrelated color accents.
 - The main route should read as an ink trace; reserve blue for directional/current-location signals and accuracy feedback.

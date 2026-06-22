@@ -28,6 +28,7 @@ const MAX_CONNECTED_GAP_M = 2000;
 const INTERPOLATION_STEP_M = 80;
 const ROUTE_TOLERANCE_PX = 3;
 const MARKER_ANIMATION_MS = 650;
+const VIEWER_HEARTBEAT_MS = 15000;
 const CURRENT_LOCATION_ZOOM = 17.7;
 const CURRENT_LOCATION_MAX_ZOOM = 18.3;
 const DEFAULT_CAMERA = {
@@ -82,6 +83,11 @@ let latestTrackedLngLat = null;
 let hasFitRoute = false;
 let mapReady = false;
 let appSettings = { ...DEFAULT_SETTINGS };
+let viewerTotalViewMs = 0;
+let viewerPendingViewMs = 0;
+let viewerLastViewTickAt = Date.now();
+let viewerLastHeartbeatAt = Date.now();
+let viewerTickTimer = null;
 
 const emptyFeatureCollection = { type: "FeatureCollection", features: [] };
 const transparentIcon = {
@@ -108,6 +114,7 @@ document.body.classList.toggle("is-admin", isAdminMode);
 document.body.classList.toggle("is-viewer", !isAdminMode);
 if (modeLabelEl) modeLabelEl.textContent = isAdminMode ? "Admin" : "Viewer";
 setAdminUnlocked(false);
+if (!isAdminMode) startViewerStats();
 
 pinFormEl?.addEventListener("submit", loginAdmin);
 document.querySelector("#lockAdminButton")?.addEventListener("click", lockAdmin);
@@ -371,6 +378,117 @@ async function rotateUploadToken() {
   } catch {
     adminMessage("Failed to rotate token.");
   }
+}
+
+function formatDuration(ms) {
+  const totalSeconds = Math.max(0, Math.floor(Number(ms || 0) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}H ${String(minutes).padStart(2, "0")}M`;
+  if (minutes > 0) return `${minutes}M ${String(seconds).padStart(2, "0")}S`;
+  return `${seconds}S`;
+}
+
+function renderViewerWatchTime() {
+  if (isAdminMode || !statusEl) return;
+  statusEl.textContent = `TOTAL ${formatDuration(viewerTotalViewMs + viewerPendingViewMs)}`;
+  signalDotEl?.classList.remove("live");
+}
+
+function collectViewerElapsed() {
+  const now = Date.now();
+  if (document.visibilityState === "visible") {
+    viewerPendingViewMs += now - viewerLastViewTickAt;
+  }
+  viewerLastViewTickAt = now;
+}
+
+async function loadViewerStats() {
+  if (isAdminMode) return;
+  try {
+    const res = await fetch("/api/viewer-stats");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const totalViewMs = Number(data.stats?.totalViewMs);
+    if (Number.isFinite(totalViewMs)) viewerTotalViewMs = Math.max(0, totalViewMs);
+  } catch {
+    // The page can still show the current local session time if stats fail.
+  }
+  renderViewerWatchTime();
+}
+
+async function flushViewerHeartbeat(useBeacon = false) {
+  if (isAdminMode) return;
+  collectViewerElapsed();
+  const durationMs = Math.floor(viewerPendingViewMs);
+  if (durationMs < 1000) {
+    renderViewerWatchTime();
+    return;
+  }
+  viewerPendingViewMs -= durationMs;
+
+  const body = JSON.stringify({ durationMs });
+  if (useBeacon && navigator.sendBeacon) {
+    const sent = navigator.sendBeacon(
+      "/api/viewer-heartbeat",
+      new Blob([body], { type: "application/json" })
+    );
+    if (sent) {
+      viewerTotalViewMs += durationMs;
+      renderViewerWatchTime();
+    } else {
+      viewerPendingViewMs += durationMs;
+    }
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/viewer-heartbeat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      keepalive: true,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const totalViewMs = Number(data.stats?.totalViewMs);
+    if (Number.isFinite(totalViewMs)) viewerTotalViewMs = Math.max(0, totalViewMs);
+  } catch {
+    viewerPendingViewMs += durationMs;
+    // Keep pending time so a later heartbeat can retry it.
+  }
+  renderViewerWatchTime();
+}
+
+function tickViewerStats() {
+  if (isAdminMode) return;
+  collectViewerElapsed();
+  renderViewerWatchTime();
+  const now = Date.now();
+  if (now - viewerLastHeartbeatAt >= VIEWER_HEARTBEAT_MS) {
+    viewerLastHeartbeatAt = now;
+    flushViewerHeartbeat();
+  }
+}
+
+function startViewerStats() {
+  renderViewerWatchTime();
+  loadViewerStats();
+  if (viewerTickTimer) clearInterval(viewerTickTimer);
+  viewerTickTimer = setInterval(tickViewerStats, 1000);
+  document.addEventListener("visibilitychange", () => {
+    tickViewerStats();
+    viewerLastViewTickAt = Date.now();
+  });
+  window.addEventListener("pagehide", () => flushViewerHeartbeat(true));
+  window.addEventListener("beforeunload", () => flushViewerHeartbeat(true));
+}
+
+function setOperationalStatus(text, live = false) {
+  if (!isAdminMode) return;
+  statusEl.textContent = text;
+  signalDotEl.classList.toggle("live", Boolean(live));
 }
 
 function fmtClock(ms) {
@@ -1013,18 +1131,16 @@ function fitViewport(segments, latestPoint, keepViewport) {
 
 function updateFreshness(latest) {
   if (latest.raw_status === "sharing_off") {
-    statusEl.textContent = "OFF";
+    setOperationalStatus("OFF", false);
     mapInstructionEl.textContent = "위치 공유 꺼짐";
     mapSubStatusEl.textContent = `${latest.deviceName || "Android"} · ${fmtClock(latest.timestamp)}`;
-    signalDotEl.classList.remove("live");
     return;
   }
 
   const isStale = Date.now() - latest.timestamp > 120000 || latest.raw_status !== "valid";
-  statusEl.textContent = isStale ? "OFFLINE" : "LIVE";
+  setOperationalStatus(isStale ? "OFFLINE" : "LIVE", !isStale);
   mapInstructionEl.textContent = isStale ? "새 위치 수신 대기 중" : "실시간 위치 추적 중";
   mapSubStatusEl.textContent = `${latest.deviceName || "Android"} · ${fmtClock(latest.timestamp)}`;
-  signalDotEl.classList.toggle("live", !isStale);
 }
 
 function render(records, options = {}) {
@@ -1035,10 +1151,9 @@ function render(records, options = {}) {
   if (!latestRaw) {
     latestTrackedLngLat = null;
     setLocateButtonEnabled(false);
-    statusEl.textContent = "WAITING";
+    setOperationalStatus("WAITING", false);
     mapInstructionEl.textContent = "위치 수신 대기";
     mapSubStatusEl.textContent = "원본 좌표 저장 · 표시 경로 보정";
-    signalDotEl.classList.remove("live");
     lastSeenEl.textContent = "--:--:--";
     coordsEl.textContent = "- / -";
     distanceEl.textContent = "0 M";
@@ -1078,20 +1193,18 @@ async function loadLocations(options = {}) {
     if (isAdminMode && dateInput?.value) params.set("date", dateInput.value);
     const res = await fetch(`/api/locations?${params.toString()}`, { headers: headers() });
     if (res.status === 401) {
-      statusEl.textContent = "TOKEN REQ";
+      setOperationalStatus("TOKEN REQ", false);
       mapInstructionEl.textContent = "토큰 필요";
       mapSubStatusEl.textContent = "관리자 토큰을 저장하세요";
-      signalDotEl.classList.remove("live");
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     render(data.records || [], options);
   } catch {
-    statusEl.textContent = "ERROR";
+    setOperationalStatus("ERROR", false);
     mapInstructionEl.textContent = "서버 연결 실패";
     mapSubStatusEl.textContent = "API 응답을 확인하세요";
-    signalDotEl.classList.remove("live");
   }
 }
 

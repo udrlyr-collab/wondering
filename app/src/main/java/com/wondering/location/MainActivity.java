@@ -7,7 +7,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.provider.Settings;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -25,10 +25,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends Activity {
+    private static final int CUSTOM_INTERVAL_ID = 900001;
+
     private SharedPreferences prefs;
     private Switch enabledSwitch;
     private EditText endpointInput;
     private EditText tokenInput;
+    private EditText customIntervalInput;
     private TextView stateText;
     private RadioGroup intervalGroup;
 
@@ -49,8 +52,7 @@ public class MainActivity extends Activity {
         root.setPadding(dp(20), dp(28), dp(20), dp(28));
         scroll.addView(root);
 
-        TextView title = text("Wondering Location", 24, true);
-        root.addView(title);
+        root.addView(text("Wondering Location", 24, true));
         root.addView(text("관리자용 위치 공유 앱", 14, false));
         root.addView(space(22));
 
@@ -65,23 +67,35 @@ public class MainActivity extends Activity {
         root.addView(enabledSwitch);
         root.addView(space(16));
 
-        endpointInput = input("서버 주소");
+        endpointInput = input("https://wondering.kr");
         root.addView(label("서버 주소"));
         root.addView(endpointInput);
         root.addView(space(14));
 
-        tokenInput = input("공유 토큰");
-        root.addView(label("공유 토큰"));
+        tokenInput = input("업로드 토큰");
+        root.addView(label("업로드 토큰"));
         root.addView(tokenInput);
         root.addView(space(18));
 
         root.addView(label("업로드 간격"));
         intervalGroup = new RadioGroup(this);
-        intervalGroup.setOrientation(RadioGroup.HORIZONTAL);
+        intervalGroup.setOrientation(RadioGroup.VERTICAL);
+        intervalGroup.addView(radio("5초", 5000));
+        intervalGroup.addView(radio("10초", 10000));
         intervalGroup.addView(radio("15초", 15000));
         intervalGroup.addView(radio("60초", 60000));
         intervalGroup.addView(radio("5분", 300000));
+        intervalGroup.addView(radio("Custom", CUSTOM_INTERVAL_ID));
+        intervalGroup.setOnCheckedChangeListener((group, checkedId) -> updateCustomIntervalState());
         root.addView(intervalGroup);
+
+        customIntervalInput = input("커스텀 초 단위, 예: 30");
+        customIntervalInput.setInputType(InputType.TYPE_CLASS_NUMBER);
+        customIntervalInput.setOnFocusChangeListener((view, hasFocus) -> {
+            if (hasFocus) intervalGroup.check(CUSTOM_INTERVAL_ID);
+        });
+        customIntervalInput.setOnClickListener(view -> intervalGroup.check(CUSTOM_INTERVAL_ID));
+        root.addView(customIntervalInput);
         root.addView(space(22));
 
         Button save = button("설정 저장");
@@ -100,8 +114,7 @@ public class MainActivity extends Activity {
         root.addView(stop);
 
         root.addView(space(18));
-        TextView note = text("기본 업로드 간격은 60초입니다. 배터리 사용량을 줄이려면 60초 또는 5분을 사용하세요.", 13, false);
-        root.addView(note);
+        root.addView(text("기본 업로드 간격은 60초입니다. 5초/10초는 더 빠르게 반영되지만 배터리 사용량이 늘 수 있습니다.", 13, false));
         return scroll;
     }
 
@@ -109,21 +122,60 @@ public class MainActivity extends Activity {
         enabledSwitch.setChecked(prefs.getBoolean(SharePrefs.KEY_ENABLED, false));
         endpointInput.setText(prefs.getString(SharePrefs.KEY_ENDPOINT, SharePrefs.DEFAULT_ENDPOINT));
         tokenInput.setText(prefs.getString(SharePrefs.KEY_TOKEN, ""));
-        long refreshMs = prefs.getLong(SharePrefs.KEY_REFRESH_MS, SharePrefs.DEFAULT_REFRESH_MS);
-        intervalGroup.check((int) refreshMs);
+        long refreshMs = SharePrefs.safeRefreshMs(
+            prefs.getLong(SharePrefs.KEY_REFRESH_MS, SharePrefs.DEFAULT_REFRESH_MS)
+        );
+
+        if (isPresetRefreshMs(refreshMs)) {
+            intervalGroup.check((int) refreshMs);
+            customIntervalInput.setText("");
+        } else {
+            intervalGroup.check(CUSTOM_INTERVAL_ID);
+            customIntervalInput.setText(String.valueOf(refreshMs / 1000));
+        }
+        updateCustomIntervalState();
         stateText.setText(enabledSwitch.isChecked() ? "공유 상태: 켜짐" : "공유 상태: 꺼짐");
     }
 
     private void saveSettings(boolean toast) {
-        long refreshMs = intervalGroup.getCheckedRadioButtonId();
-        if (refreshMs <= 0) refreshMs = SharePrefs.DEFAULT_REFRESH_MS;
+        long refreshMs = selectedRefreshMs();
         prefs.edit()
             .putString(SharePrefs.KEY_ENDPOINT, endpointInput.getText().toString().trim())
             .putString(SharePrefs.KEY_TOKEN, tokenInput.getText().toString().trim())
-            .putLong(SharePrefs.KEY_REFRESH_MS, SharePrefs.safeRefreshMs(refreshMs))
+            .putLong(SharePrefs.KEY_REFRESH_MS, refreshMs)
             .apply();
         restartIfEnabled();
         if (toast) Toast.makeText(this, "저장했습니다", Toast.LENGTH_SHORT).show();
+    }
+
+    private long selectedRefreshMs() {
+        int checkedId = intervalGroup.getCheckedRadioButtonId();
+        if (checkedId == CUSTOM_INTERVAL_ID) {
+            String rawSeconds = customIntervalInput.getText().toString().trim();
+            try {
+                long seconds = Long.parseLong(rawSeconds);
+                return SharePrefs.safeRefreshMs(seconds * 1000L);
+            } catch (NumberFormatException ignored) {
+                return SharePrefs.DEFAULT_REFRESH_MS;
+            }
+        }
+        if (checkedId > 0) return SharePrefs.safeRefreshMs(checkedId);
+        return SharePrefs.DEFAULT_REFRESH_MS;
+    }
+
+    private boolean isPresetRefreshMs(long refreshMs) {
+        return refreshMs == 5000L
+            || refreshMs == 10000L
+            || refreshMs == 15000L
+            || refreshMs == 60000L
+            || refreshMs == 300000L;
+    }
+
+    private void updateCustomIntervalState() {
+        if (customIntervalInput == null || intervalGroup == null) return;
+        boolean custom = intervalGroup.getCheckedRadioButtonId() == CUSTOM_INTERVAL_ID;
+        customIntervalInput.setEnabled(custom);
+        customIntervalInput.setAlpha(custom ? 1f : 0.45f);
     }
 
     private void onEnabledChanged(CompoundButton button, boolean checked) {
@@ -185,8 +237,8 @@ public class MainActivity extends Activity {
         radio.setText(label);
         radio.setId(id);
         radio.setTextSize(15);
-        radio.setGravity(Gravity.CENTER);
-        radio.setPadding(0, 0, dp(18), 0);
+        radio.setGravity(Gravity.CENTER_VERTICAL);
+        radio.setPadding(0, dp(3), 0, dp(3));
         return radio;
     }
 

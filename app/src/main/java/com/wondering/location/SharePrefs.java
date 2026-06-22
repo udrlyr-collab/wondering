@@ -19,7 +19,7 @@ final class SharePrefs {
     static final String DEFAULT_ENDPOINT = "https://wondering.kr";
     private static final String LEGACY_LOCAL_ENDPOINT = "http://10.0.2.2:5174";
     static final long DEFAULT_REFRESH_MS = 60000L;
-    static final long MIN_REFRESH_MS = 15000L;
+    static final long MIN_REFRESH_MS = 5000L;
     static final long MAX_REFRESH_MS = 300000L;
 
     private SharePrefs() {}

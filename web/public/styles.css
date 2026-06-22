@@ -88,6 +88,14 @@ body.is-viewer .locate-control {
   display: grid;
 }
 
+body.is-viewer .signal-dot {
+  display: none;
+}
+
+body.is-viewer #status {
+  color: var(--text-main);
+}
+
 .map-container {
   flex: 1;
   min-width: 0;
