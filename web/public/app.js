@@ -34,9 +34,10 @@ const DEFAULT_SETTINGS = {
   publicMaxRecords: 1500,
   publicShowInvalidPoints: true,
 };
+const hostname = window.location.hostname.toLowerCase();
+const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 const isAdminMode =
-  window.location.hostname.toLowerCase().startsWith("admin.") ||
-  new URLSearchParams(window.location.search).get("admin") === "1";
+  hostname.startsWith("admin.") || (isLocalHost && new URLSearchParams(window.location.search).get("admin") === "1");
 const tokenStorageKey = "wonderingDashboardToken";
 const MAP_COLORS = {
   paper: "#f7f6f1",
