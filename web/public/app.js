@@ -3,9 +3,16 @@ const signalDotEl = document.querySelector("#signalDot");
 const lastSeenEl = document.querySelector("#lastSeen");
 const coordsEl = document.querySelector("#coords");
 const distanceEl = document.querySelector("#distance");
+const modeLabelEl = document.querySelector("#modeLabel");
+const adminPanelEl = document.querySelector("#adminPanel");
 const tokenInput = document.querySelector("#tokenInput");
 const dateInput = document.querySelector("#dateInput");
 const pollSelect = document.querySelector("#pollSelect");
+const publicPollSelect = document.querySelector("#publicPollSelect");
+const publicMaxRecordsInput = document.querySelector("#publicMaxRecordsInput");
+const publicInvalidInput = document.querySelector("#publicInvalidInput");
+const newTokenInput = document.querySelector("#newTokenInput");
+const adminFeedbackEl = document.querySelector("#adminFeedback");
 const mapInstructionEl = document.querySelector("#mapInstruction");
 const mapSubStatusEl = document.querySelector("#mapSubStatus");
 const mapEl = document.querySelector("#map");
@@ -22,6 +29,15 @@ const DEFAULT_CAMERA = {
   pitch: 62,
   bearing: -28,
 };
+const DEFAULT_SETTINGS = {
+  publicPollMs: 10000,
+  publicMaxRecords: 1500,
+  publicShowInvalidPoints: true,
+};
+const isAdminMode =
+  window.location.hostname.toLowerCase().startsWith("admin.") ||
+  new URLSearchParams(window.location.search).get("admin") === "1";
+const tokenStorageKey = "wonderingDashboardToken";
 const MAP_COLORS = {
   paper: "#f7f6f1",
   paperDeep: "#e4e1d8",
@@ -50,6 +66,7 @@ let marker = null;
 let markerAnimation = null;
 let hasFitRoute = false;
 let mapReady = false;
+let appSettings = { ...DEFAULT_SETTINGS };
 
 const emptyFeatureCollection = { type: "FeatureCollection", features: [] };
 const transparentIcon = {
@@ -72,18 +89,27 @@ const map = new maplibregl.Map({
 map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
 map.dragRotate.enable();
 map.touchZoomRotate.enableRotation();
-tokenInput.value = localStorage.getItem("wonderingDashboardToken") || "";
+document.body.classList.toggle("is-admin", isAdminMode);
+document.body.classList.toggle("is-viewer", !isAdminMode);
+if (modeLabelEl) modeLabelEl.textContent = isAdminMode ? "Admin" : "Viewer";
+if (adminPanelEl) adminPanelEl.hidden = !isAdminMode;
+if (tokenInput) tokenInput.value = localStorage.getItem(tokenStorageKey) || "";
 
-document.querySelector("#saveTokenButton").addEventListener("click", () => {
-  localStorage.setItem("wonderingDashboardToken", tokenInput.value.trim());
+document.querySelector("#saveTokenButton")?.addEventListener("click", () => {
+  localStorage.setItem(tokenStorageKey, tokenInput.value.trim());
+  adminMessage("Admin token saved.");
+  verifyAdminSession();
   loadLocations();
 });
 
-dateInput.addEventListener("change", () => {
+document.querySelector("#saveSettingsButton")?.addEventListener("click", saveAdminSettings);
+document.querySelector("#rotateTokenButton")?.addEventListener("click", rotateUploadToken);
+
+dateInput?.addEventListener("change", () => {
   hasFitRoute = false;
   loadLocations();
 });
-pollSelect.addEventListener("change", resetPolling);
+pollSelect?.addEventListener("change", resetPolling);
 map.on("zoomend", () => loadLocations({ keepViewport: true }));
 map.on("pitchend", updateMapDiagnostics);
 map.on("rotateend", updateMapDiagnostics);
@@ -96,10 +122,144 @@ map.on("styleimagemissing", (event) => {
 map.on("error", (event) => {
   if (mapEl) mapEl.dataset.mapError = event.error?.message || "map error";
 });
+loadSettings();
+verifyAdminSession();
 
 function headers() {
-  const token = localStorage.getItem("wonderingDashboardToken") || "";
+  if (!isAdminMode) return {};
+  const token = localStorage.getItem(tokenStorageKey) || "";
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function adminMessage(message) {
+  if (!adminFeedbackEl) return;
+  adminFeedbackEl.textContent = message;
+}
+
+function applySettingsToForm() {
+  if (publicPollSelect) publicPollSelect.value = String(appSettings.publicPollMs);
+  if (publicMaxRecordsInput) publicMaxRecordsInput.value = String(appSettings.publicMaxRecords);
+  if (publicInvalidInput) publicInvalidInput.checked = Boolean(appSettings.publicShowInvalidPoints);
+}
+
+function selectedLimit() {
+  if (isAdminMode) return MAX_RECORDS;
+  return Math.min(MAX_RECORDS, Number(appSettings.publicMaxRecords) || DEFAULT_SETTINGS.publicMaxRecords);
+}
+
+function shouldShowInvalidPoints() {
+  return isAdminMode || Boolean(appSettings.publicShowInvalidPoints);
+}
+
+function normalizeSettings(input = {}) {
+  const publicPollMs = Number(input.publicPollMs);
+  const publicMaxRecords = Number(input.publicMaxRecords);
+  return {
+    publicPollMs: [5000, 10000, 30000].includes(publicPollMs) ? publicPollMs : DEFAULT_SETTINGS.publicPollMs,
+    publicMaxRecords: Number.isFinite(publicMaxRecords)
+      ? Math.max(100, Math.min(1500, Math.round(publicMaxRecords)))
+      : DEFAULT_SETTINGS.publicMaxRecords,
+    publicShowInvalidPoints:
+      typeof input.publicShowInvalidPoints === "boolean"
+        ? input.publicShowInvalidPoints
+        : DEFAULT_SETTINGS.publicShowInvalidPoints,
+  };
+}
+
+async function loadSettings() {
+  try {
+    const res = await fetch("/api/settings");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    appSettings = normalizeSettings(data.settings);
+    applySettingsToForm();
+    resetPolling();
+  } catch {
+    appSettings = { ...DEFAULT_SETTINGS };
+    applySettingsToForm();
+  }
+}
+
+async function verifyAdminSession() {
+  if (!isAdminMode) return;
+  const token = localStorage.getItem(tokenStorageKey) || "";
+  if (!token) {
+    adminMessage("Enter the current upload token to unlock admin actions.");
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/admin/session", { headers: headers() });
+    if (res.status === 401) {
+      adminMessage("Token rejected.");
+      return;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    appSettings = normalizeSettings(data.settings);
+    applySettingsToForm();
+    adminMessage("Admin unlocked.");
+  } catch {
+    adminMessage("Admin verification failed.");
+  }
+}
+
+async function saveAdminSettings() {
+  if (!isAdminMode) return;
+  const settings = normalizeSettings({
+    publicPollMs: publicPollSelect?.value,
+    publicMaxRecords: publicMaxRecordsInput?.value,
+    publicShowInvalidPoints: Boolean(publicInvalidInput?.checked),
+  });
+
+  try {
+    const res = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...headers() },
+      body: JSON.stringify(settings),
+    });
+    if (res.status === 401) {
+      adminMessage("Token required to save settings.");
+      return;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    appSettings = normalizeSettings(data.settings);
+    applySettingsToForm();
+    resetPolling();
+    loadLocations({ keepViewport: true });
+    adminMessage("Viewer settings saved.");
+  } catch {
+    adminMessage("Failed to save settings.");
+  }
+}
+
+async function rotateUploadToken() {
+  if (!isAdminMode) return;
+  const nextToken = (newTokenInput?.value || "").trim();
+  if (nextToken.length < 24) {
+    adminMessage("New token must be at least 24 characters.");
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/admin/token", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...headers() },
+      body: JSON.stringify({ token: nextToken }),
+    });
+    if (res.status === 401) {
+      adminMessage("Current token required before rotation.");
+      return;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    localStorage.setItem(tokenStorageKey, nextToken);
+    if (tokenInput) tokenInput.value = nextToken;
+    if (newTokenInput) newTokenInput.value = "";
+    adminMessage("Upload token rotated. Update the Android app token.");
+  } catch {
+    adminMessage("Failed to rotate token.");
+  }
 }
 
 function fmtClock(ms) {
@@ -684,7 +844,7 @@ function render(records, options = {}) {
 
   const segments = buildDisplaySegments(records);
   drawRoute(segments);
-  drawInvalidPoints(records);
+  drawInvalidPoints(shouldShowInvalidPoints() ? records : []);
   animateMarkerTo(toLngLat(latestDisplay));
   updateAccuracyArea(latestDisplay);
   fitViewport(segments, latestDisplay, options.keepViewport);
@@ -693,8 +853,8 @@ function render(records, options = {}) {
 async function loadLocations(options = {}) {
   if (!mapReady) return;
   try {
-    const params = new URLSearchParams({ limit: String(MAX_RECORDS) });
-    if (dateInput.value) params.set("date", dateInput.value);
+    const params = new URLSearchParams({ limit: String(selectedLimit()) });
+    if (isAdminMode && dateInput?.value) params.set("date", dateInput.value);
     const res = await fetch(`/api/locations?${params.toString()}`, { headers: headers() });
     if (res.status === 401) {
       statusEl.textContent = "TOKEN REQ";
@@ -716,5 +876,6 @@ async function loadLocations(options = {}) {
 
 function resetPolling() {
   if (pollTimer) clearInterval(pollTimer);
-  pollTimer = setInterval(loadLocations, Number(pollSelect.value));
+  const interval = isAdminMode ? Number(pollSelect?.value || DEFAULT_SETTINGS.publicPollMs) : appSettings.publicPollMs;
+  pollTimer = setInterval(loadLocations, interval);
 }

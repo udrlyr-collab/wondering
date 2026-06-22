@@ -4,6 +4,8 @@
 
 - Android app is an administrator-owned location sharing app.
 - Web app is an administrator dashboard for current position and movement trace.
+- `wondering.kr` is the public read-only location viewer.
+- `admin.wondering.kr` is the administrator surface for token entry, viewer settings, and upload-token rotation.
 - Android keeps raw GPS upload explicit through the web sharing switch.
 - Transport mode classification is out of scope for the first version.
 
@@ -21,7 +23,9 @@
 - Display route geometry is derived at read/render time only.
 - Do not write simplified, interpolated, or smoothed points back to storage.
 - API responses may add `raw_status`; stored raw records remain unchanged.
-- `LOCATION_SHARE_TOKEN` can protect upload and dashboard API reads.
+- Public API reads may power the read-only viewer.
+- `LOCATION_SHARE_TOKEN` or the rotated stored token must protect uploads and administrator mutations.
+- Do not expose token entry, token rotation, or admin settings on the public viewer host.
 
 ## Route Rules
 
@@ -40,6 +44,8 @@
 ## Web UI Rules
 
 - The map is the primary work surface.
+- Public viewer mode must show only the map, status, and location readings.
+- Administrator controls must appear only on the admin host or local admin test mode.
 - Last update time, current coordinate, distance, and valid/raw point count must be visible.
 - Do not show a separate movement-history list in the dashboard.
 - Keep raw point details in API data or developer tooling, not in the main UI.

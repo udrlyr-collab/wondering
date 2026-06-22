@@ -3,10 +3,12 @@ const fs = require("fs");
 const path = require("path");
 
 const port = Number(process.env.PORT || 5174);
-const token = process.env.LOCATION_SHARE_TOKEN || "";
+const envToken = process.env.LOCATION_SHARE_TOKEN || "";
 const publicDir = path.join(__dirname, "public");
 const dataDir = path.join(__dirname, "data");
 const dataFile = path.join(dataDir, "locations.jsonl");
+const settingsFile = path.join(dataDir, "settings.json");
+const authFile = path.join(dataDir, "auth.json");
 
 const DISPLAY_RULES = {
   maxAccuracyM: 50,
@@ -14,6 +16,12 @@ const DISPLAY_RULES = {
   jumpWindowMs: 60000,
   jumpDistanceM: 1000,
   maxSpeedMps: 55,
+};
+
+const DEFAULT_PUBLIC_SETTINGS = {
+  publicPollMs: 10000,
+  publicMaxRecords: 1500,
+  publicShowInvalidPoints: true,
 };
 
 fs.mkdirSync(dataDir, { recursive: true });
@@ -28,9 +36,55 @@ function sendJson(res, status, payload) {
   res.end(body);
 }
 
+function readJsonFile(filePath, fallback) {
+  try {
+    if (!fs.existsSync(filePath)) return fallback;
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJsonFile(filePath, payload) {
+  fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+}
+
+function activeToken() {
+  const auth = readJsonFile(authFile, {});
+  const savedToken = typeof auth.locationShareToken === "string" ? auth.locationShareToken.trim() : "";
+  return savedToken || envToken;
+}
+
 function isAuthorized(req) {
+  const token = activeToken();
   if (!token) return true;
   return req.headers.authorization === `Bearer ${token}`;
+}
+
+function publicSettings() {
+  const saved = readJsonFile(settingsFile, {});
+  return sanitizeSettings(saved);
+}
+
+function sanitizeSettings(input = {}) {
+  const publicPollMs = Number(input.publicPollMs);
+  const publicMaxRecords = Number(input.publicMaxRecords);
+  return {
+    publicPollMs: [5000, 10000, 30000].includes(publicPollMs) ? publicPollMs : DEFAULT_PUBLIC_SETTINGS.publicPollMs,
+    publicMaxRecords: Number.isFinite(publicMaxRecords)
+      ? Math.max(100, Math.min(1500, Math.round(publicMaxRecords)))
+      : DEFAULT_PUBLIC_SETTINGS.publicMaxRecords,
+    publicShowInvalidPoints:
+      typeof input.publicShowInvalidPoints === "boolean"
+        ? input.publicShowInvalidPoints
+        : DEFAULT_PUBLIC_SETTINGS.publicShowInvalidPoints,
+  };
+}
+
+function assertAuthorized(req, res) {
+  if (isAuthorized(req)) return true;
+  sendJson(res, 401, { error: "unauthorized" });
+  return false;
 }
 
 function readBody(req) {
@@ -172,23 +226,33 @@ function serveStatic(req, res, url) {
 }
 
 async function handleApi(req, res, url) {
-  if (!isAuthorized(req)) {
-    sendJson(res, 401, { error: "unauthorized" });
+  if (req.method === "GET" && url.pathname === "/api/health") {
+    sendJson(res, 200, { ok: true, tokenRequired: Boolean(activeToken()) });
     return;
   }
 
-  if (req.method === "GET" && url.pathname === "/api/health") {
-    sendJson(res, 200, { ok: true, tokenRequired: Boolean(token) });
+  if (req.method === "GET" && url.pathname === "/api/settings") {
+    sendJson(res, 200, { settings: publicSettings() });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/admin/session") {
+    if (!assertAuthorized(req, res)) return;
+    sendJson(res, 200, { ok: true, tokenRequired: Boolean(activeToken()), settings: publicSettings() });
     return;
   }
 
   if (req.method === "GET" && url.pathname === "/api/locations") {
-    const limit = Math.min(Number(url.searchParams.get("limit") || 500), 5000);
+    const settings = publicSettings();
+    const requestedLimit = Number(url.searchParams.get("limit") || settings.publicMaxRecords);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.max(1, Math.min(requestedLimit, settings.publicMaxRecords))
+      : settings.publicMaxRecords;
     const date = url.searchParams.get("date");
     const records = withRawStatus(loadRecords())
       .filter((record) => !date || record.date === date)
       .sort((a, b) => a.timestamp - b.timestamp);
-    sendJson(res, 200, { records: records.slice(-limit), displayRules: DISPLAY_RULES });
+    sendJson(res, 200, { records: records.slice(-limit), displayRules: DISPLAY_RULES, settings });
     return;
   }
 
@@ -199,6 +263,7 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/locations") {
+    if (!assertAuthorized(req, res)) return;
     try {
       const raw = await readBody(req);
       const point = normalizePoint(JSON.parse(raw || "{}"));
@@ -208,6 +273,37 @@ async function handleApi(req, res, url) {
       }
       fs.appendFileSync(dataFile, `${JSON.stringify(point)}\n`, "utf8");
       sendJson(res, 201, { ok: true, record: point });
+    } catch {
+      sendJson(res, 400, { error: "invalid json" });
+    }
+    return;
+  }
+
+  if (req.method === "PUT" && url.pathname === "/api/settings") {
+    if (!assertAuthorized(req, res)) return;
+    try {
+      const raw = await readBody(req);
+      const settings = sanitizeSettings(JSON.parse(raw || "{}"));
+      writeJsonFile(settingsFile, { ...settings, updatedAt: Date.now() });
+      sendJson(res, 200, { ok: true, settings });
+    } catch {
+      sendJson(res, 400, { error: "invalid json" });
+    }
+    return;
+  }
+
+  if (req.method === "PUT" && url.pathname === "/api/admin/token") {
+    if (!assertAuthorized(req, res)) return;
+    try {
+      const raw = await readBody(req);
+      const payload = JSON.parse(raw || "{}");
+      const nextToken = typeof payload.token === "string" ? payload.token.trim() : "";
+      if (nextToken.length < 24) {
+        sendJson(res, 400, { error: "token must be at least 24 characters" });
+        return;
+      }
+      writeJsonFile(authFile, { locationShareToken: nextToken, updatedAt: Date.now() });
+      sendJson(res, 200, { ok: true, tokenRequired: true });
     } catch {
       sendJson(res, 400, { error: "invalid json" });
     }

@@ -21,6 +21,7 @@
       <aside class="hud">
         <div class="brand-rail">
           <h1>Wondering<br>Location</h1>
+          <p id="modeLabel" class="mode-label">Viewer</p>
           <div class="status-wrap">
             <div id="signalDot" class="signal-dot"></div>
             <p id="status">Waiting</p>
@@ -40,15 +41,41 @@
             <strong id="distance">-</strong>
           </div>
         </div>
-        <div class="controls">
-          <input id="tokenInput" type="password" autocomplete="off" placeholder="Token" />
-          <input id="dateInput" type="date" />
-          <select id="pollSelect">
-            <option value="5000">5s</option>
-            <option value="10000" selected>10s</option>
-            <option value="30000">30s</option>
-          </select>
-          <button id="saveTokenButton" type="button">Set</button>
+        <div id="adminPanel" class="admin-panel" hidden>
+          <div class="admin-section">
+            <span>Admin token</span>
+            <input id="tokenInput" type="password" autocomplete="off" placeholder="Current token" />
+            <button id="saveTokenButton" type="button">Unlock</button>
+          </div>
+          <div class="admin-section">
+            <span>Viewer settings</span>
+            <select id="publicPollSelect">
+              <option value="5000">Refresh 5s</option>
+              <option value="10000" selected>Refresh 10s</option>
+              <option value="30000">Refresh 30s</option>
+            </select>
+            <input id="publicMaxRecordsInput" type="number" min="100" max="1500" step="100" placeholder="Max records" />
+            <label class="checkbox-row">
+              <input id="publicInvalidInput" type="checkbox" checked />
+              <span>Show muted invalid points</span>
+            </label>
+            <button id="saveSettingsButton" type="button">Save settings</button>
+          </div>
+          <div class="admin-section">
+            <span>Admin tools</span>
+            <input id="dateInput" type="date" />
+            <select id="pollSelect">
+              <option value="5000">Admin 5s</option>
+              <option value="10000" selected>Admin 10s</option>
+              <option value="30000">Admin 30s</option>
+            </select>
+          </div>
+          <div class="admin-section">
+            <span>Rotate upload token</span>
+            <input id="newTokenInput" type="password" autocomplete="new-password" placeholder="New token" />
+            <button id="rotateTokenButton" type="button">Rotate token</button>
+          </div>
+          <p id="adminFeedback" class="admin-feedback"></p>
         </div>
       </aside>
     </main>

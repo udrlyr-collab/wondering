@@ -136,6 +136,15 @@ button, input, select {
   line-height: 1;
 }
 
+.mode-label {
+  margin: 8px 0 0;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
 .brand-rail .status-wrap {
   display: flex;
   align-items: center;
@@ -206,50 +215,91 @@ button, input, select {
   text-overflow: ellipsis;
 }
 
-.controls {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  flex: 0 0 320px;
-  width: 320px;
+.admin-panel {
+  flex: 0 0 420px;
+  width: 420px;
   min-width: 0;
+  padding: 14px 16px;
+  border-left: 1px solid var(--border-rule);
+  overflow-y: auto;
   background: var(--bg-panel);
 }
 
-.controls > * {
-  border-right: 1px solid var(--border-light);
+.admin-panel[hidden] {
+  display: none;
+}
+
+.admin-section {
+  display: grid;
+  grid-template-columns: 1fr 116px;
+  gap: 8px;
+  padding: 0 0 12px;
+  margin: 0 0 12px;
   border-bottom: 1px solid var(--border-light);
-  border-radius: 0;
-  border-top: none;
-  border-left: none;
-  background: transparent;
-  padding: 0 16px;
+}
+
+.admin-section:last-of-type {
+  margin-bottom: 6px;
+}
+
+.admin-section > span {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.admin-section input,
+.admin-section select,
+.admin-section button {
   min-width: 0;
+  height: 36px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: transparent;
+  padding: 0 10px;
   color: var(--text-main);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   outline: none;
 }
 
-.controls input::placeholder {
-  color: var(--text-muted);
-}
-
-.controls > *:nth-child(even) {
-  border-right: none;
-}
-.controls > *:nth-child(n+3) {
-  border-bottom: none;
-}
-
-.controls button {
+.admin-section button {
   cursor: pointer;
-  font-weight: 700;
+  border-color: var(--border-rule);
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
-.controls button:hover {
+
+.admin-section button:hover {
   background: var(--bg-warm);
+}
+
+.checkbox-row {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.checkbox-row input {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+}
+
+.admin-feedback {
+  min-height: 18px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .currentMarker {
@@ -341,8 +391,15 @@ button, input, select {
     border-right: none;
     border-bottom: 1px solid var(--border-light);
   }
-  .controls {
+  .admin-panel {
     width: 100%;
+    flex-basis: auto;
+    border-left: none;
+    border-top: 1px solid var(--border-rule);
+  }
+
+  .admin-section {
+    grid-template-columns: 1fr;
   }
 
   .map-status-card {
