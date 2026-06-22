@@ -16,7 +16,8 @@ final class SharePrefs {
     static final String KEY_REFRESH_MS = "refresh_ms";
     static final String KEY_DISTANCE_M = "distance_m";
 
-    static final String DEFAULT_ENDPOINT = "http://10.0.2.2:5174";
+    static final String DEFAULT_ENDPOINT = "https://wondering.kr";
+    private static final String LEGACY_LOCAL_ENDPOINT = "http://10.0.2.2:5174";
     static final long DEFAULT_REFRESH_MS = 60000L;
     static final long MIN_REFRESH_MS = 15000L;
     static final long MAX_REFRESH_MS = 300000L;
@@ -36,7 +37,9 @@ final class SharePrefs {
             edit.putBoolean(KEY_ENABLED, false);
             changed = true;
         }
-        if (!prefs.contains(KEY_ENDPOINT)) {
+        String savedEndpoint = prefs.getString(KEY_ENDPOINT, "");
+        if (!prefs.contains(KEY_ENDPOINT) || savedEndpoint == null || savedEndpoint.trim().isEmpty()
+            || LEGACY_LOCAL_ENDPOINT.equals(savedEndpoint.trim())) {
             edit.putString(KEY_ENDPOINT, DEFAULT_ENDPOINT);
             changed = true;
         }

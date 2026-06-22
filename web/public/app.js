@@ -104,6 +104,7 @@ document.querySelector("#saveTokenButton")?.addEventListener("click", () => {
 });
 
 document.querySelector("#saveSettingsButton")?.addEventListener("click", saveAdminSettings);
+document.querySelector("#generateTokenButton")?.addEventListener("click", generateUploadToken);
 document.querySelector("#rotateTokenButton")?.addEventListener("click", rotateUploadToken);
 
 dateInput?.addEventListener("change", () => {
@@ -233,6 +234,14 @@ async function saveAdminSettings() {
   } catch {
     adminMessage("Failed to save settings.");
   }
+}
+
+function generateUploadToken() {
+  if (!isAdminMode || !newTokenInput) return;
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  newTokenInput.value = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  adminMessage("Generated a new token. Rotate to activate it.");
 }
 
 async function rotateUploadToken() {

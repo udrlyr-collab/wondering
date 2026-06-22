@@ -26,6 +26,7 @@
 - Public API reads may power the read-only viewer.
 - `LOCATION_SHARE_TOKEN` or the rotated stored token must protect uploads and administrator mutations.
 - Do not expose token entry, token rotation, or admin settings on the public viewer host.
+- Administrator token generation must use browser cryptographic randomness and must not activate until the admin rotates the token.
 
 ## Route Rules
 
@@ -73,4 +74,5 @@
 
 - Keep settings compact and administrator-oriented.
 - Expose sharing enabled, server URL, token, and upload interval.
+- Default server URL is `https://wondering.kr`.
 - Do not start sharing without explicit user action.
