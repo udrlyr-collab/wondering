@@ -97,9 +97,10 @@
         <form id="pinForm" class="pin-card">
           <span>Admin access</span>
           <h2>Enter PIN</h2>
-          <input id="pinInput" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN" />
+          <p class="pin-note">입력한 PIN이 화면에 그대로 표시됩니다.</p>
+          <input id="pinInput" type="text" inputmode="numeric" autocomplete="off" placeholder="PIN" aria-label="Admin PIN" />
           <button id="pinSubmitButton" type="submit">Unlock</button>
-          <p id="pinFeedback" class="admin-feedback"></p>
+          <p id="pinFeedback" class="admin-feedback pin-feedback" aria-live="polite"></p>
         </form>
       </section>
     </main>

@@ -59,6 +59,8 @@
 - Mobile public viewer HUD must stay compact and should not consume more vertical space than needed for key readings.
 - Administrator controls must appear only on the admin host or local admin test mode after PIN login.
 - Admin controls should be a separated narrow side workspace; keep the live map dominant in admin mode.
+- Admin PIN input may show typed digits plainly; invalid PIN feedback must be visually explicit.
+- Admin map camera must reset retained padding before focusing the tracked location.
 - Last updated time, current coordinate, distance, and total public viewer watch time must be visible.
 - Do not show a separate movement-history list in the dashboard.
 - Keep raw point details in API data or developer tooling, not in the main UI.

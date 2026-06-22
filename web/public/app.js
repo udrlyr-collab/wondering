@@ -157,6 +157,7 @@ function setAdminUnlocked(unlocked) {
   document.body.classList.toggle("admin-unlocked", Boolean(isAdminMode && unlocked));
   document.body.classList.toggle("admin-locked", Boolean(isAdminMode && !unlocked));
   if (unlocked) {
+    pinFormEl?.classList.remove("pin-error");
     pinInput?.blur();
   } else if (isAdminMode) {
     setTimeout(() => pinInput?.focus(), 50);
@@ -177,14 +178,27 @@ function resizeMapNow() {
   updateMapDiagnostics();
 }
 
+function resetCameraPadding() {
+  if (typeof map.setPadding !== "function") return;
+  map.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
+}
+
 function adminMessage(message) {
   if (!adminFeedbackEl) return;
   adminFeedbackEl.textContent = message;
 }
 
-function pinMessage(message) {
+function pinMessage(message, tone = "") {
   if (!pinFeedbackEl) return;
   pinFeedbackEl.textContent = message;
+  pinFeedbackEl.classList.toggle("is-error", tone === "error");
+  pinFeedbackEl.classList.toggle("is-success", tone === "success");
+  if (tone === "error") {
+    pinFormEl?.classList.remove("pin-error");
+    window.setTimeout(() => pinFormEl?.classList.add("pin-error"), 0);
+  } else {
+    pinFormEl?.classList.remove("pin-error");
+  }
 }
 
 function applySettingsToForm() {
@@ -247,14 +261,14 @@ async function verifyAdminSession() {
   const token = sessionStorage.getItem(adminSessionStorageKey) || "";
   if (!token) {
     setAdminUnlocked(false);
-    pinMessage("PIN is required.");
+    pinMessage("PIN을 입력하세요.");
     return;
   }
 
   try {
     const res = await fetch("/api/admin/session", { headers: headers() });
     if (res.status === 401) {
-      lockAdmin("PIN session expired.");
+      lockAdmin("PIN 세션이 만료되었습니다.");
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -263,7 +277,7 @@ async function verifyAdminSession() {
     setAdminUnlocked(true);
     adminMessage("Admin unlocked.");
   } catch {
-    lockAdmin("Admin verification failed.");
+    lockAdmin("PIN 확인에 실패했습니다.");
   }
 }
 
@@ -272,23 +286,23 @@ async function loginAdmin(event) {
   if (!isAdminMode) return;
   const pin = (pinInput?.value || "").trim();
   if (!pin) {
-    pinMessage("Enter PIN.");
+    pinMessage("PIN을 입력하세요.", "error");
     return;
   }
 
   try {
-    pinMessage("Checking PIN...");
+    pinMessage("PIN 확인 중...");
     const res = await fetch("/api/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pin }),
     });
     if (res.status === 401) {
-      pinMessage("Invalid PIN.");
+      pinMessage("PIN이 틀렸습니다. 다시 확인하세요.", "error");
       return;
     }
     if (res.status === 429) {
-      pinMessage("Too many attempts. Wait and try again.");
+      pinMessage("PIN 시도 횟수가 너무 많습니다. 잠시 후 다시 시도하세요.", "error");
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -300,7 +314,7 @@ async function loginAdmin(event) {
     adminMessage("Admin unlocked.");
     loadLocations({ keepViewport: true });
   } catch {
-    pinMessage("PIN login failed.");
+    pinMessage("PIN 로그인 요청에 실패했습니다.", "error");
   }
 }
 
@@ -649,6 +663,7 @@ function initializeMap() {
   }
   if (!map.getStyle()?.layers?.length || !map.getSource("openmaptiles")) return;
   mapReady = true;
+  resetCameraPadding();
   scheduleMapResize();
   setupMapLayers();
   loadLocations();
@@ -1117,12 +1132,14 @@ function setLocateButtonEnabled(enabled) {
 function focusTrackedLocation() {
   if (!mapReady || !latestTrackedLngLat) return;
   resizeMapNow();
+  resetCameraPadding();
   const zoom = Math.min(Math.max(map.getZoom(), CURRENT_LOCATION_ZOOM), CURRENT_LOCATION_MAX_ZOOM);
   map.easeTo({
     center: latestTrackedLngLat,
     zoom,
     pitch: DEFAULT_CAMERA.pitch,
     bearing: DEFAULT_CAMERA.bearing,
+    offset: isAdminMode ? [0, 42] : [0, 0],
     duration: 850,
     essential: true,
   });
