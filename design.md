@@ -89,6 +89,7 @@
 - Do not use marketing sections, floating ornamentation, or decorative illustration layers.
 - Current location and previous route must be visually distinct.
 - Current marker is a blue circle with a white border, a subtle pulse, and an accuracy circle when available.
+- When location sharing is explicitly off, the last known marker and accuracy circle must use a disabled gray state.
 - If updates stop, show waiting or age-based status text.
 - Recent `low_accuracy` uploads must show `GPS WEAK`, not `OFFLINE`.
 

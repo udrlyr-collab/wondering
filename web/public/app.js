@@ -78,6 +78,8 @@ const MAP_COLORS = {
   route: "#101010",
   routeHalo: "#ffffff",
   routeAccent: "#0877ff",
+  locationDisabled: "#8C928E",
+  locationDisabledLine: "#757D78",
   invalid: "#7B8581",
 };
 
@@ -1249,16 +1251,34 @@ function drawInvalidPoints(records) {
   map.getSource("invalid-points").setData(invalidGeoJson(records));
 }
 
-function animateMarkerTo(nextLngLat) {
+function setAccuracyAreaDisabled(disabled) {
+  if (!mapReady || !map.getLayer("accuracy-fill") || !map.getLayer("accuracy-line")) return;
+  map.setPaintProperty("accuracy-fill", "fill-color", disabled ? MAP_COLORS.locationDisabled : MAP_COLORS.routeAccent);
+  map.setPaintProperty("accuracy-fill", "fill-opacity", disabled ? 0.11 : 0.08);
+  map.setPaintProperty(
+    "accuracy-line",
+    "line-color",
+    disabled ? MAP_COLORS.locationDisabledLine : MAP_COLORS.routeAccent
+  );
+  map.setPaintProperty("accuracy-line", "line-opacity", disabled ? 0.28 : 0.22);
+}
+
+function setCurrentMarkerDisabled(disabled) {
+  marker?.getElement()?.classList.toggle("is-disabled", disabled);
+}
+
+function animateMarkerTo(nextLngLat, disabled = false) {
   if (!marker) {
     const el = document.createElement("div");
     el.className = "currentMarker";
+    el.classList.toggle("is-disabled", disabled);
     marker = new maplibregl.Marker({ element: el, anchor: "center", pitchAlignment: "map", rotationAlignment: "map" })
       .setLngLat(nextLngLat)
       .addTo(map);
     return;
   }
 
+  setCurrentMarkerDisabled(disabled);
   if (markerAnimation) cancelAnimationFrame(markerAnimation);
   const start = marker.getLngLat();
   const from = [start.lng, start.lat];
@@ -1274,8 +1294,9 @@ function animateMarkerTo(nextLngLat) {
   markerAnimation = requestAnimationFrame(frame);
 }
 
-function updateAccuracyArea(point) {
+function updateAccuracyArea(point, disabled = false) {
   if (!mapReady) return;
+  setAccuracyAreaDisabled(disabled);
   const accuracy = Number(point.accuracyMeters);
   const source = map.getSource("accuracy-area");
   if (!Number.isFinite(accuracy) || accuracy <= 0) {
@@ -1386,8 +1407,9 @@ function render(records, options = {}) {
   }
 
   if (showCurrentLocation) {
-    animateMarkerTo(latestTrackedLngLat);
-    updateAccuracyArea(latestDisplay);
+    const isSharingOff = latestRaw.raw_status === "sharing_off";
+    animateMarkerTo(latestTrackedLngLat, isSharingOff);
+    updateAccuracyArea(latestDisplay, isSharingOff);
   } else {
     removeCurrentMarker();
   }

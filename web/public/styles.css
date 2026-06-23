@@ -730,6 +730,23 @@ body.is-viewer #status {
   animation: markerPulse 1.5s ease-out infinite;
 }
 
+.currentMarker.is-disabled {
+  background: #8c928e;
+  border-color: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 6px 14px rgba(16, 16, 16, 0.16);
+}
+
+.currentMarker.is-disabled::before {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.currentMarker.is-disabled::after {
+  border-color: #757d78;
+  animation: none;
+  opacity: 0.38;
+  transform: scale(1.45);
+}
+
 @keyframes markerPulse {
   0% { transform: scale(0.8); opacity: 0.8; }
   100% { transform: scale(2); opacity: 0; }
