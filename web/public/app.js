@@ -311,14 +311,14 @@ async function verifyAdminSession() {
   const token = sessionStorage.getItem(adminSessionStorageKey) || "";
   if (!token) {
     setAdminUnlocked(false);
-    pinMessage("PIN을 입력하세요.");
+    pinMessage("비밀번호를 입력하세요.");
     return;
   }
 
   try {
     const res = await fetch("/api/admin/session", { headers: headers() });
     if (res.status === 401) {
-      lockAdmin("PIN 세션이 만료되었습니다.");
+      lockAdmin("비밀번호 세션이 만료되었습니다.");
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -328,7 +328,7 @@ async function verifyAdminSession() {
     adminMessage("Admin unlocked.");
     loadUploadHistory();
   } catch {
-    lockAdmin("PIN 확인에 실패했습니다.");
+    lockAdmin("비밀번호 확인에 실패했습니다.");
   }
 }
 
@@ -337,23 +337,23 @@ async function loginAdmin(event) {
   if (!isAdminMode) return;
   const pin = (pinInput?.value || "").trim();
   if (!pin) {
-    pinMessage("PIN을 입력하세요.", "error");
+    pinMessage("비밀번호를 입력하세요.", "error");
     return;
   }
 
   try {
-    pinMessage("PIN 확인 중...");
+    pinMessage("비밀번호 확인 중...");
     const res = await fetch("/api/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pin }),
     });
     if (res.status === 401) {
-      pinMessage("PIN이 틀렸습니다. 다시 확인하세요.", "error");
+      pinMessage("비밀번호가 틀렸습니다. 다시 확인하세요.", "error");
       return;
     }
     if (res.status === 429) {
-      pinMessage("PIN 시도 횟수가 너무 많습니다. 잠시 후 다시 시도하세요.", "error");
+      pinMessage("비밀번호 시도 횟수가 너무 많습니다. 잠시 후 다시 시도하세요.", "error");
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -366,7 +366,7 @@ async function loginAdmin(event) {
     loadLocations({ keepViewport: true });
     loadUploadHistory();
   } catch {
-    pinMessage("PIN 로그인 요청에 실패했습니다.", "error");
+    pinMessage("비밀번호 로그인 요청에 실패했습니다.", "error");
   }
 }
 
@@ -395,7 +395,7 @@ async function saveAdminSettings() {
       body: JSON.stringify(settings),
     });
     if (res.status === 401) {
-      lockAdmin("PIN session expired.");
+      lockAdmin("비밀번호 세션이 만료되었습니다.");
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -450,7 +450,7 @@ async function rotateUploadToken() {
       body: JSON.stringify({ token: nextToken }),
     });
     if (res.status === 401) {
-      lockAdmin("PIN session expired.");
+      lockAdmin("비밀번호 세션이 만료되었습니다.");
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -687,7 +687,7 @@ async function loadUploadHistory() {
   try {
     const res = await fetch("/api/admin/upload-history?limit=80", { headers: headers() });
     if (res.status === 401) {
-      lockAdmin("PIN session expired.");
+      lockAdmin("비밀번호 세션이 만료되었습니다.");
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);

@@ -5,7 +5,7 @@
 - Android app is an administrator-owned location sharing app.
 - Web app is an administrator dashboard for current position and movement trace.
 - `wondering.kr` is the public read-only location viewer.
-- `admin.wondering.kr` is the administrator surface for PIN login, viewer settings, and upload-token rotation.
+- `admin.wondering.kr` is the administrator surface for password login, viewer settings, and upload-token rotation.
 - Android keeps raw GPS upload explicit through the web sharing switch.
 - Transport mode classification is out of scope for the first version.
 
@@ -32,7 +32,7 @@
 - Do not expose token entry, token rotation, or admin settings on the public viewer host.
 - The authenticated admin page may show the active upload token so the administrator can copy it into the Android app.
 - Admin controls must use short helper text when a section name is ambiguous.
-- Administrator access uses a server-side PIN session; do not use the Android upload token as the admin login credential.
+- Administrator access uses a server-side password session; do not use the Android upload token as the admin login credential.
 - Administrator token generation must use browser cryptographic randomness and must not activate until the admin rotates the token.
 
 ## Route Rules
@@ -61,10 +61,10 @@
 - After the initial focus, do not auto-zoom or auto-pan when new location records arrive; only the current-location control may move the camera.
 - Show location sharing ON/OFF next to `Last Updated` with a small green/gray dot.
 - Mobile public viewer HUD must stay compact and should not consume more vertical space than needed for key readings.
-- Administrator controls must appear only on the admin host or local admin test mode after PIN login.
+- Administrator controls must appear only on the admin host or local admin test mode after password login.
 - Admin controls should be a separated narrow side workspace; keep the live map dominant in admin mode.
 - Admin controls may show recent server-received upload history in a compact scrollable list.
-- Admin PIN input may show typed digits plainly; invalid PIN feedback must be visually explicit.
+- Admin password input may show typed digits plainly; invalid password feedback must be visually explicit.
 - Admin map camera must reset retained padding before focusing the tracked location.
 - Last updated time, current coordinate, `Distance / Steps`, and total public viewer watch time must be visible.
 - The selected route date must be visible on screen and editable through a compact calendar date input.
