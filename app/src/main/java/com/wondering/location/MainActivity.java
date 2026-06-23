@@ -54,7 +54,6 @@ public class MainActivity extends Activity {
 
     private SharedPreferences prefs;
     private Switch enabledSwitch;
-    private EditText endpointInput;
     private EditText tokenInput;
     private EditText customIntervalInput;
     private TextView stateText;
@@ -80,6 +79,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = SharePrefs.get(this);
+        prefs.edit().putString(SharePrefs.KEY_ENDPOINT, SharePrefs.DEFAULT_ENDPOINT).apply();
         requestNeededPermissions();
         setContentView(buildContent());
         refreshUi();
@@ -125,7 +125,7 @@ public class MainActivity extends Activity {
         scroll.setFillViewport(true);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(18), dp(20), dp(18), dp(20));
+        root.setPadding(dp(18), dp(36), dp(18), dp(20));
         scroll.addView(root);
 
         TextView title = text("Wondering Location", 23, true);
@@ -148,13 +148,10 @@ public class MainActivity extends Activity {
         root.addView(enabledSwitch);
         root.addView(space(12));
 
-        root.addView(label("Server URL"));
-        endpointInput = input("https://wondering.kr");
-        root.addView(endpointInput);
-        root.addView(space(10));
-
         root.addView(label("Upload token"));
         tokenInput = input("Token from admin.wondering.kr");
+        tokenInput.setSelectAllOnFocus(true);
+        tokenInput.setOnClickListener(view -> tokenInput.selectAll());
         root.addView(tokenInput);
         root.addView(space(10));
 
@@ -217,7 +214,6 @@ public class MainActivity extends Activity {
 
     private void refreshUi() {
         enabledSwitch.setChecked(prefs.getBoolean(SharePrefs.KEY_ENABLED, false));
-        endpointInput.setText(prefs.getString(SharePrefs.KEY_ENDPOINT, SharePrefs.DEFAULT_ENDPOINT));
         tokenInput.setText(prefs.getString(SharePrefs.KEY_TOKEN, ""));
         long refreshMs = SharePrefs.safeRefreshMs(
             prefs.getLong(SharePrefs.KEY_REFRESH_MS, SharePrefs.DEFAULT_REFRESH_MS)
@@ -317,7 +313,7 @@ public class MainActivity extends Activity {
     private void saveSettings(boolean toast) {
         long refreshMs = selectedRefreshMs();
         prefs.edit()
-            .putString(SharePrefs.KEY_ENDPOINT, endpointInput.getText().toString().trim())
+            .putString(SharePrefs.KEY_ENDPOINT, SharePrefs.DEFAULT_ENDPOINT)
             .putString(SharePrefs.KEY_TOKEN, tokenInput.getText().toString().trim())
             .putLong(SharePrefs.KEY_REFRESH_MS, refreshMs)
             .apply();

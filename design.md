@@ -93,7 +93,9 @@
 ## Android UI Rules
 
 - Keep settings compact and administrator-oriented.
-- Expose sharing enabled, server URL, token, and upload interval.
+- Expose sharing enabled, upload token, and upload interval.
+- Keep the server URL fixed to the default `https://wondering.kr` unless a dedicated advanced setting is added.
+- Upload token input should select the whole token on focus or tap for easy replacement.
 - Keep local recent upload history in a separate scrollable view or dialog so the main control screen stays short.
 - Show recent upload history with success/failure state, time, response code, coordinate, accuracy, daily distance, and daily steps.
 - Show whether the app is currently sending to the server, the last upload result, and the remaining time until the next expected upload.
