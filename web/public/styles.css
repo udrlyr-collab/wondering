@@ -469,6 +469,10 @@ body.is-viewer #status {
   grid-template-columns: minmax(0, 1fr) 78px;
 }
 
+.upload-history-section {
+  grid-template-columns: minmax(0, 1fr) 96px;
+}
+
 .admin-section > span,
 .admin-section-note {
   grid-column: 1 / -1;
@@ -517,6 +521,74 @@ body.is-viewer #status {
   cursor: default;
   opacity: 0.45;
   background: transparent;
+}
+
+.upload-history-list {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.upload-history-item {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.46);
+}
+
+.upload-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.upload-history-head time,
+.upload-history-item p,
+.upload-history-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.upload-history-item strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-history-badge {
+  flex: 0 0 auto;
+  max-width: 116px;
+  overflow: hidden;
+  padding: 3px 7px;
+  border: 1px solid var(--border-light);
+  border-radius: 999px;
+  color: var(--text-main);
+  font-size: 10px;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.upload-history-badge[data-status="valid"] {
+  border-color: var(--border-rule);
+}
+
+.upload-history-badge[data-status="sharing_off"] {
+  color: var(--text-muted);
 }
 
 .checkbox-row {

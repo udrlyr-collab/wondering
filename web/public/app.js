@@ -24,6 +24,8 @@ const mapInstructionEl = document.querySelector("#mapInstruction");
 const mapSubStatusEl = document.querySelector("#mapSubStatus");
 const mapEl = document.querySelector("#map");
 const locateCurrentButton = document.querySelector("#locateCurrentButton");
+const uploadHistoryListEl = document.querySelector("#uploadHistoryList");
+const refreshUploadHistoryButton = document.querySelector("#refreshUploadHistoryButton");
 
 const MAX_RECORDS = 1500;
 const MAX_INVALID_MARKERS = 200;
@@ -129,6 +131,7 @@ copyTokenButton?.addEventListener("click", copyUploadToken);
 document.querySelector("#generateTokenButton")?.addEventListener("click", generateUploadToken);
 document.querySelector("#rotateTokenButton")?.addEventListener("click", rotateUploadToken);
 locateCurrentButton?.addEventListener("click", focusTrackedLocation);
+refreshUploadHistoryButton?.addEventListener("click", loadUploadHistory);
 
 routeDateInput?.addEventListener("change", () => changeRouteDate(routeDateInput.value));
 dateInput?.addEventListener("change", () => changeRouteDate(dateInput.value));
@@ -323,6 +326,7 @@ async function verifyAdminSession() {
     applyAdminData(data);
     setAdminUnlocked(true);
     adminMessage("Admin unlocked.");
+    loadUploadHistory();
   } catch {
     lockAdmin("PIN 확인에 실패했습니다.");
   }
@@ -360,6 +364,7 @@ async function loginAdmin(event) {
     setAdminUnlocked(true);
     adminMessage("Admin unlocked.");
     loadLocations({ keepViewport: true });
+    loadUploadHistory();
   } catch {
     pinMessage("PIN 로그인 요청에 실패했습니다.", "error");
   }
@@ -370,6 +375,7 @@ function lockAdmin(message = "Admin locked.") {
   sessionStorage.removeItem(adminSessionStorageKey);
   setAdminUnlocked(false);
   applyUploadToken("");
+  renderUploadHistory([]);
   pinMessage(message);
   adminMessage("");
 }
@@ -596,7 +602,7 @@ function fmtSteps(steps) {
 }
 
 function fmtMovement(distanceMeters, steps) {
-  return `${fmtDistance(distanceMeters)} / ${fmtSteps(steps)}`;
+  return `${fmtDistance(distanceMeters)} \\ ${fmtSteps(steps)}`;
 }
 
 function rawStatusLabel(status) {
@@ -609,6 +615,88 @@ function rawStatusLabel(status) {
     sharing_off: "sharing off",
     invalid_payload: "invalid payload",
   }[status] || status || "unknown";
+}
+
+function fmtHistoryTime(ms) {
+  if (!ms) return "--";
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(new Date(ms));
+}
+
+function historyTypeLabel(record) {
+  if (record.raw_status === "sharing_off") return "sharing off";
+  if (record.recordType === "event") return record.event || "event";
+  return record.raw_status || "location";
+}
+
+function renderUploadHistory(records = []) {
+  if (!uploadHistoryListEl) return;
+  uploadHistoryListEl.replaceChildren();
+
+  if (!records.length) {
+    const empty = document.createElement("p");
+    empty.className = "upload-history-empty";
+    empty.textContent = "No upload records yet.";
+    uploadHistoryListEl.append(empty);
+    return;
+  }
+
+  for (const record of records) {
+    const item = document.createElement("article");
+    item.className = "upload-history-item";
+
+    const head = document.createElement("div");
+    head.className = "upload-history-head";
+
+    const time = document.createElement("time");
+    time.textContent = fmtHistoryTime(record.serverReceivedAt || record.timestamp);
+
+    const badge = document.createElement("span");
+    badge.className = "upload-history-badge";
+    badge.dataset.status = record.raw_status || "unknown";
+    badge.textContent = historyTypeLabel(record);
+
+    head.append(time, badge);
+
+    const main = document.createElement("strong");
+    main.textContent = record.deviceName || record.deviceId || "Android";
+
+    const meta = document.createElement("p");
+    const parts = [fmtMovement(record.distanceMeters, record.steps)];
+    if (Number.isFinite(Number(record.accuracyMeters))) {
+      parts.push(`+/-${Math.round(Number(record.accuracyMeters))}m`);
+    }
+    if (Number.isFinite(Number(record.latitude)) && Number.isFinite(Number(record.longitude))) {
+      parts.push(`${Number(record.latitude).toFixed(5)} / ${Number(record.longitude).toFixed(5)}`);
+    }
+    meta.textContent = parts.join(" · ");
+
+    item.append(head, main, meta);
+    uploadHistoryListEl.append(item);
+  }
+}
+
+async function loadUploadHistory() {
+  if (!isAdminMode || !uploadHistoryListEl) return;
+  try {
+    const res = await fetch("/api/admin/upload-history?limit=80", { headers: headers() });
+    if (res.status === 401) {
+      lockAdmin("PIN session expired.");
+      return;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    renderUploadHistory(data.records || []);
+  } catch {
+    renderUploadHistory([]);
+    adminMessage("Failed to load upload history.");
+  }
 }
 
 function setPaint(layerId, property, value) {

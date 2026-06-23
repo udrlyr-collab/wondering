@@ -43,7 +43,7 @@
             <strong id="coords">-</strong>
           </div>
           <div class="reading">
-            <span>Distance / Steps</span>
+            <span>Distance \ Steps</span>
             <strong id="distance">-</strong>
           </div>
           <div class="reading route-date-reading">
@@ -96,6 +96,12 @@
             <button id="copyTokenButton" type="button">Copy</button>
             <button id="generateTokenButton" type="button">Generate</button>
             <button id="rotateTokenButton" type="button">Rotate token</button>
+          </div>
+          <div class="admin-section admin-section-wide upload-history-section">
+            <span>Upload history</span>
+            <p class="admin-section-note">Recent records received from the Android uploader.</p>
+            <button id="refreshUploadHistoryButton" type="button">Refresh</button>
+            <div id="uploadHistoryList" class="upload-history-list" aria-live="polite"></div>
           </div>
         </div>
         <p id="adminFeedback" class="admin-feedback"></p>

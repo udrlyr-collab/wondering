@@ -492,6 +492,17 @@ async function handleApi(req, res, url) {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/admin/upload-history") {
+    if (!assertAdminAuthorized(req, res)) return;
+    const requestedLimit = Number(url.searchParams.get("limit") || 80);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.max(1, Math.min(200, Math.round(requestedLimit)))
+      : 80;
+    const records = withRawStatus(loadRecords().sort((a, b) => a.timestamp - b.timestamp));
+    sendJson(res, 200, { records: records.slice(-limit).reverse() });
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/locations") {
     const settings = publicSettings();
     const requestedLimit = Number(url.searchParams.get("limit") || settings.publicMaxRecords);
