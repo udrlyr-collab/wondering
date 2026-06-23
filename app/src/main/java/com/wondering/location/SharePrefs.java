@@ -15,6 +15,11 @@ final class SharePrefs {
     static final String KEY_DEVICE_NAME = "device_name";
     static final String KEY_REFRESH_MS = "refresh_ms";
     static final String KEY_DISTANCE_M = "distance_m";
+    static final String KEY_DISTANCE_DATE = "distance_date";
+    static final String KEY_STEP_DATE = "step_date";
+    static final String KEY_STEP_BASE_TOTAL = "step_base_total";
+    static final String KEY_STEP_LAST_TOTAL = "step_last_total";
+    static final String KEY_DAILY_STEPS = "daily_steps";
     static final String KEY_SERVICE_RUNNING = "service_running";
     static final String KEY_UPLOAD_IN_PROGRESS = "upload_in_progress";
     static final String KEY_LAST_UPLOAD_AT = "last_upload_at";

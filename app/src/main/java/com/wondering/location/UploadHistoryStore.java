@@ -24,6 +24,7 @@ final class UploadHistoryStore {
         long timestamp,
         Location location,
         float distanceM,
+        int dailySteps,
         int httpStatus,
         boolean success,
         String message
@@ -34,6 +35,7 @@ final class UploadHistoryStore {
             item.put("longitude", location.getLongitude());
             item.put("accuracyMeters", location.hasAccuracy() ? location.getAccuracy() : JSONObject.NULL);
             item.put("distanceMeters", distanceM);
+            item.put("steps", dailySteps);
         } catch (Exception ignored) {
         }
         append(context, item);
@@ -44,6 +46,7 @@ final class UploadHistoryStore {
         long timestamp,
         String event,
         float distanceM,
+        int dailySteps,
         int httpStatus,
         boolean success,
         String message
@@ -51,6 +54,7 @@ final class UploadHistoryStore {
         JSONObject item = baseItem(timestamp, event, httpStatus, success, message);
         try {
             item.put("distanceMeters", distanceM);
+            item.put("steps", dailySteps);
         } catch (Exception ignored) {
         }
         append(context, item);
@@ -133,6 +137,10 @@ final class UploadHistoryStore {
 
         if (item.has("distanceMeters")) {
             builder.append(" | ").append(Math.round(item.optDouble("distanceMeters"))).append("m");
+        }
+
+        if (item.has("steps")) {
+            builder.append(" | ").append(item.optInt("steps", 0)).append(" steps");
         }
 
         String message = item.optString("message", "");

@@ -15,12 +15,12 @@ import java.util.Locale;
 final class ShareStateUploader {
     private ShareStateUploader() {}
 
-    static void uploadAsync(Context context, String event, float distanceM) {
+    static void uploadAsync(Context context, String event, float distanceM, int dailySteps) {
         Context appContext = context.getApplicationContext();
-        new Thread(() -> upload(appContext, event, distanceM), "wondering-share-state").start();
+        new Thread(() -> upload(appContext, event, distanceM, dailySteps), "wondering-share-state").start();
     }
 
-    private static void upload(Context context, String event, float distanceM) {
+    private static void upload(Context context, String event, float distanceM, int dailySteps) {
         SharedPreferences prefs = SharePrefs.get(context);
         HttpURLConnection conn = null;
         long timestamp = System.currentTimeMillis();
@@ -49,6 +49,7 @@ final class ShareStateUploader {
                 .put("timestamp", timestamp)
                 .put("date", new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(timestamp)))
                 .put("source", "share_state")
+                .put("steps", dailySteps)
                 .put("distanceMeters", distanceM);
 
             byte[] bytes = body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -62,7 +63,7 @@ final class ShareStateUploader {
             message = ex.getClass().getSimpleName();
         } finally {
             if (conn != null) conn.disconnect();
-            UploadHistoryStore.recordEvent(context, timestamp, event, distanceM, httpStatus, success, message);
+            UploadHistoryStore.recordEvent(context, timestamp, event, distanceM, dailySteps, httpStatus, success, message);
         }
     }
 }

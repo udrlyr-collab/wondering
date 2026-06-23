@@ -27,6 +27,7 @@
 - API responses may add `raw_status`; stored raw records remain unchanged.
 - Public API reads may power the read-only viewer.
 - Location records must keep a `YYYY-MM-DD` route date so the web map can query one day's movement history.
+- Android `distanceMeters` and `steps` are daily values and reset on the local app date.
 - `LOCATION_SHARE_TOKEN` or the rotated stored token must protect uploads and administrator mutations.
 - Do not expose token entry, token rotation, or admin settings on the public viewer host.
 - The authenticated admin page may show the active upload token so the administrator can copy it into the Android app.
@@ -64,7 +65,7 @@
 - Admin controls should be a separated narrow side workspace; keep the live map dominant in admin mode.
 - Admin PIN input may show typed digits plainly; invalid PIN feedback must be visually explicit.
 - Admin map camera must reset retained padding before focusing the tracked location.
-- Last updated time, current coordinate, distance, and total public viewer watch time must be visible.
+- Last updated time, current coordinate, daily distance, daily steps, and total public viewer watch time must be visible.
 - The selected route date must be visible on screen and editable through a compact calendar date input.
 - When viewing a non-today route date, do not show the live current-location marker or live accuracy circle.
 - Do not show a separate movement-history list in the dashboard.
@@ -94,7 +95,7 @@
 - Keep settings compact and administrator-oriented.
 - Expose sharing enabled, server URL, token, and upload interval.
 - Keep local recent upload history in a separate scrollable view or dialog so the main control screen stays short.
-- Show recent upload history with success/failure state, time, response code, coordinate, accuracy, and distance.
+- Show recent upload history with success/failure state, time, response code, coordinate, accuracy, daily distance, and daily steps.
 - Show whether the app is currently sending to the server, the last upload result, and the remaining time until the next expected upload.
 - Upload cadence must be driven by the selected interval when a last known location is available; do not depend only on movement-triggered location callbacks.
 - Default server URL is `https://wondering.kr`.

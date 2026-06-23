@@ -99,6 +99,9 @@ public class MainActivity extends Activity {
         }
         statusHandler.removeCallbacks(statusTicker);
         statusHandler.post(statusTicker);
+        if (prefs.getBoolean(SharePrefs.KEY_ENABLED, false)) {
+            startTrackingService();
+        }
     }
 
     @Override
@@ -243,6 +246,8 @@ public class MainActivity extends Activity {
         boolean lastSuccess = prefs.getBoolean(SharePrefs.KEY_LAST_UPLOAD_SUCCESS, false);
         int lastHttp = prefs.getInt(SharePrefs.KEY_LAST_UPLOAD_HTTP, -1);
         String message = prefs.getString(SharePrefs.KEY_LAST_UPLOAD_MESSAGE, "");
+        float dailyDistanceM = prefs.getFloat(SharePrefs.KEY_DISTANCE_M, 0f);
+        int dailySteps = prefs.getInt(SharePrefs.KEY_DAILY_STEPS, 0);
 
         StringBuilder builder = new StringBuilder();
         builder.append("Service: ");
@@ -250,6 +255,12 @@ public class MainActivity extends Activity {
         else builder.append(running ? "running" : "starting");
 
         builder.append("  |  Sending: ").append(sending ? "yes" : "no");
+
+        builder.append("\nToday: ")
+            .append(Math.round(dailyDistanceM))
+            .append("m / ")
+            .append(dailySteps)
+            .append(" steps");
 
         builder.append("\nNext: ");
         if (!enabled) {
@@ -376,6 +387,9 @@ public class MainActivity extends Activity {
         addMissing(missing, Manifest.permission.ACCESS_COARSE_LOCATION);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             addMissing(missing, Manifest.permission.POST_NOTIFICATIONS);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            addMissing(missing, Manifest.permission.ACTIVITY_RECOGNITION);
         }
         if (!missing.isEmpty()) requestPermissions(missing.toArray(new String[0]), 10);
     }

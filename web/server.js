@@ -231,6 +231,16 @@ function toFiniteNumber(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+function toNonNegativeInteger(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.floor(number)) : 0;
+}
+
+function toNonNegativeNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, number) : 0;
+}
+
 function distanceMeters(a, b) {
   const radius = 6371000;
   const lat1 = (a.latitude * Math.PI) / 180;
@@ -375,8 +385,8 @@ function normalizePoint(input) {
     source: String(input.source || "gps"),
     accuracyMeters,
     speedMps,
-    steps: Number(input.steps || 0),
-    distanceMeters: Number(input.distanceMeters || 0),
+    steps: toNonNegativeInteger(input.steps),
+    distanceMeters: toNonNegativeNumber(input.distanceMeters),
   };
 }
 
@@ -394,7 +404,8 @@ function normalizeShareState(input, event) {
     timestamp,
     date: normalizeDateParam(input.date) || dateFromTimestamp(timestamp),
     source: String(input.source || "share_state"),
-    distanceMeters: Number(input.distanceMeters || 0),
+    steps: toNonNegativeInteger(input.steps),
+    distanceMeters: toNonNegativeNumber(input.distanceMeters),
   };
 }
 

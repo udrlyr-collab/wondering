@@ -589,6 +589,16 @@ function fmtDistance(meters) {
   return `${Math.round(value)} M`;
 }
 
+function fmtSteps(steps) {
+  const value = Math.max(0, Math.floor(Number(steps || 0)));
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}K STEPS`;
+  return `${value} STEPS`;
+}
+
+function fmtMovement(distanceMeters, steps) {
+  return `${fmtDistance(distanceMeters)} / ${fmtSteps(steps)}`;
+}
+
 function rawStatusLabel(status) {
   return {
     valid: "valid",
@@ -1239,7 +1249,7 @@ function render(records, options = {}) {
     mapSubStatusEl.textContent = "원본 좌표 저장 · 표시 경로 보정";
     lastSeenEl.textContent = "--:--:--";
     coordsEl.textContent = "- / -";
-    distanceEl.textContent = "0 M";
+    distanceEl.textContent = fmtMovement(0, 0);
     clearMapData();
     removeCurrentMarker();
     return;
@@ -1247,7 +1257,7 @@ function render(records, options = {}) {
 
   updateFreshness(latestRaw);
   lastSeenEl.textContent = fmtClock(latestRaw.timestamp);
-  distanceEl.textContent = fmtDistance(latestRaw.distanceMeters);
+  distanceEl.textContent = fmtMovement(latestRaw.distanceMeters, latestRaw.steps);
 
   const segments = buildDisplaySegments(records);
   drawRoute(segments);

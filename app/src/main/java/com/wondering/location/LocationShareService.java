@@ -9,6 +9,10 @@ import android.app.Service;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.os.Build;
 import android.os.Handler;
@@ -33,12 +37,14 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class LocationShareService extends Service {
+public class LocationShareService extends Service implements SensorEventListener {
     private static final String CHANNEL_ID = "wondering_location";
     private static final int NOTIFICATION_ID = 7001;
 
     private SharedPreferences prefs;
     private FusedLocationProviderClient fusedLocation;
+    private SensorManager sensorManager;
+    private Sensor stepCounterSensor;
     private LocationCallback callback;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler uploadHandler = new Handler(Looper.getMainLooper());
@@ -52,6 +58,7 @@ public class LocationShareService extends Service {
     private double lastLat;
     private double lastLng;
     private float distanceM;
+    private int dailySteps;
     private Location lastKnownLocation;
     private volatile boolean uploadInProgress;
 
@@ -60,10 +67,14 @@ public class LocationShareService extends Service {
         super.onCreate();
         prefs = SharePrefs.get(this);
         fusedLocation = LocationServices.getFusedLocationProviderClient(this);
+        sensorManager = getSystemService(SensorManager.class);
+        ensureDailyCounters();
         distanceM = prefs.getFloat(SharePrefs.KEY_DISTANCE_M, 0f);
+        dailySteps = prefs.getInt(SharePrefs.KEY_DAILY_STEPS, 0);
         markServiceRunning("Service starting");
         createChannel();
         startForeground(NOTIFICATION_ID, notification("Location sharing ready"));
+        startStepUpdates();
         startLocationUpdates();
     }
 
@@ -81,8 +92,10 @@ public class LocationShareService extends Service {
     public void onDestroy() {
         uploadHandler.removeCallbacks(periodicUpload);
         if (callback != null) fusedLocation.removeLocationUpdates(callback);
+        if (sensorManager != null) sensorManager.unregisterListener(this);
         if (prefs != null && !prefs.getBoolean(SharePrefs.KEY_ENABLED, false)) {
-            ShareStateUploader.uploadAsync(this, "sharing_off", distanceM);
+            ensureDailyCounters();
+            ShareStateUploader.uploadAsync(this, "sharing_off", distanceM, dailySteps);
         }
         markServiceStopped("Service stopped");
         executor.shutdownNow();
@@ -133,13 +146,27 @@ public class LocationShareService extends Service {
             || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
+    private boolean hasActivityPermission() {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+            || checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void startStepUpdates() {
+        if (sensorManager == null || !hasActivityPermission()) return;
+        stepCounterSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
+        if (stepCounterSensor != null) {
+            sensorManager.registerListener(this, stepCounterSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        }
+    }
+
     private void handleLocation(Location location) {
         if (!prefs.getBoolean(SharePrefs.KEY_ENABLED, false)) return;
         boolean hadLocation = lastKnownLocation != null;
+        ensureDailyCounters();
         updateDistance(location);
         lastKnownLocation = new Location(location);
         NotificationManager nm = getSystemService(NotificationManager.class);
-        nm.notify(NOTIFICATION_ID, notification("Location ready - " + Math.round(distanceM) + "m"));
+        nm.notify(NOTIFICATION_ID, notification("Location ready - " + Math.round(distanceM) + "m / " + dailySteps + " steps"));
         if (!hadLocation && !uploadInProgress) {
             scheduleNextUpload(0L);
         }
@@ -189,7 +216,7 @@ public class LocationShareService extends Service {
                 .put("source", "gps")
                 .put("accuracyMeters", location.hasAccuracy() ? location.getAccuracy() : JSONObject.NULL)
                 .put("speedMps", location.hasSpeed() ? location.getSpeed() : JSONObject.NULL)
-                .put("steps", 0)
+                .put("steps", dailySteps)
                 .put("distanceMeters", distanceM);
 
             byte[] bytes = body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -203,7 +230,7 @@ public class LocationShareService extends Service {
             message = ex.getClass().getSimpleName();
         } finally {
             if (conn != null) conn.disconnect();
-            UploadHistoryStore.recordLocation(this, timestamp, location, distanceM, httpStatus, success, message);
+            UploadHistoryStore.recordLocation(this, timestamp, location, distanceM, dailySteps, httpStatus, success, message);
             long nextUploadAt = System.currentTimeMillis() + currentIntervalMs();
             updateUploadStatus(false, success ? "Last upload OK" : message, httpStatus, success, timestamp, nextUploadAt);
             uploadInProgress = false;
@@ -246,9 +273,10 @@ public class LocationShareService extends Service {
     }
 
     private void sendLocation(Location location) {
+        ensureDailyCounters();
         uploadInProgress = true;
         NotificationManager nm = getSystemService(NotificationManager.class);
-        nm.notify(NOTIFICATION_ID, notification("Uploading - " + Math.round(distanceM) + "m"));
+        nm.notify(NOTIFICATION_ID, notification("Uploading - " + Math.round(distanceM) + "m / " + dailySteps + " steps"));
         updateUploadStatus(true, "Sending to server", -1, false, 0L, System.currentTimeMillis() + currentIntervalMs());
         executor.execute(() -> upload(location));
     }
@@ -260,6 +288,57 @@ public class LocationShareService extends Service {
 
     private long currentIntervalMs() {
         return SharePrefs.safeRefreshMs(prefs.getLong(SharePrefs.KEY_REFRESH_MS, SharePrefs.DEFAULT_REFRESH_MS));
+    }
+
+    private String todayDate() {
+        return new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+    }
+
+    private void ensureDailyCounters() {
+        String today = todayDate();
+        String distanceDate = prefs.getString(SharePrefs.KEY_DISTANCE_DATE, "");
+        String stepDate = prefs.getString(SharePrefs.KEY_STEP_DATE, "");
+        SharedPreferences.Editor edit = null;
+
+        if (!today.equals(distanceDate)) {
+            distanceM = 0f;
+            hasLast = false;
+            edit = prefs.edit()
+                .putString(SharePrefs.KEY_DISTANCE_DATE, today)
+                .putFloat(SharePrefs.KEY_DISTANCE_M, distanceM);
+        }
+
+        if (!today.equals(stepDate)) {
+            dailySteps = 0;
+            if (edit == null) edit = prefs.edit();
+            edit.putString(SharePrefs.KEY_STEP_DATE, today)
+                .putInt(SharePrefs.KEY_STEP_BASE_TOTAL, -1)
+                .putInt(SharePrefs.KEY_DAILY_STEPS, dailySteps);
+        }
+
+        if (edit != null) edit.apply();
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() != Sensor.TYPE_STEP_COUNTER || event.values.length == 0) return;
+        ensureDailyCounters();
+        int totalSteps = Math.max(0, Math.round(event.values[0]));
+        int baseSteps = prefs.getInt(SharePrefs.KEY_STEP_BASE_TOTAL, -1);
+        if (baseSteps < 0 || totalSteps < baseSteps) {
+            baseSteps = totalSteps;
+        }
+        dailySteps = Math.max(0, totalSteps - baseSteps);
+        prefs.edit()
+            .putInt(SharePrefs.KEY_STEP_BASE_TOTAL, baseSteps)
+            .putInt(SharePrefs.KEY_STEP_LAST_TOTAL, totalSteps)
+            .putInt(SharePrefs.KEY_DAILY_STEPS, dailySteps)
+            .apply();
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        // Step counter accuracy changes do not require UI or upload changes.
     }
 
     private void markServiceRunning(String message) {
