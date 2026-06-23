@@ -597,12 +597,12 @@ function fmtDistance(meters) {
 
 function fmtSteps(steps) {
   const value = Math.max(0, Math.floor(Number(steps || 0)));
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}K STEPS`;
-  return `${value} STEPS`;
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+  return `${value}`;
 }
 
 function fmtMovement(distanceMeters, steps) {
-  return `${fmtDistance(distanceMeters)} \\ ${fmtSteps(steps)}`;
+  return `${fmtDistance(distanceMeters)} / ${fmtSteps(steps)}`;
 }
 
 function rawStatusLabel(status) {

@@ -66,7 +66,7 @@
 - Admin controls may show recent server-received upload history in a compact scrollable list.
 - Admin PIN input may show typed digits plainly; invalid PIN feedback must be visually explicit.
 - Admin map camera must reset retained padding before focusing the tracked location.
-- Last updated time, current coordinate, `Distance \ Steps`, and total public viewer watch time must be visible.
+- Last updated time, current coordinate, `Distance / Steps`, and total public viewer watch time must be visible.
 - The selected route date must be visible on screen and editable through a compact calendar date input.
 - When viewing a non-today route date, do not show the live current-location marker or live accuracy circle.
 - Do not show a separate movement-history list in the dashboard.
