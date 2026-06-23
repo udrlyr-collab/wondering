@@ -358,6 +358,36 @@ body.is-viewer #status {
   text-overflow: ellipsis;
 }
 
+.route-date-reading strong {
+  font-size: 18px;
+  font-weight: 750;
+}
+
+.route-date-control {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.route-date-input {
+  width: min(160px, 100%);
+  height: 32px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.45);
+  color: var(--text-main);
+  padding: 0 9px;
+  font-size: 13px;
+  font-weight: 700;
+  outline: none;
+}
+
+.route-date-input:focus {
+  border-color: var(--border-rule);
+}
+
 .admin-panel {
   grid-column: 2;
   grid-row: 1 / 3;
@@ -725,6 +755,10 @@ body.is-viewer #status {
     grid-column: 1 / -1;
   }
 
+  body.is-admin .route-date-reading {
+    grid-column: 1 / -1;
+  }
+
   body.is-admin .reading strong {
     font-size: clamp(19px, 6vw, 25px);
   }
@@ -935,6 +969,23 @@ body.is-viewer #status {
     border-right: none;
   }
 
+  body.is-viewer .route-date-reading {
+    order: 4;
+    grid-column: 1 / -1;
+    min-height: 48px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    border-right: none;
+    border-bottom: none;
+  }
+
+  body.is-viewer .route-date-control {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
   body.is-viewer .reading span {
     margin-bottom: 2px;
     font-size: 9px;
@@ -948,5 +999,15 @@ body.is-viewer #status {
 
   body.is-viewer .reading:nth-child(2) strong {
     font-size: clamp(16px, 5.7vw, 23px);
+  }
+
+  body.is-viewer .route-date-reading strong {
+    font-size: 16px;
+  }
+
+  body.is-viewer .route-date-input {
+    width: 134px;
+    height: 30px;
+    font-size: 12px;
   }
 }

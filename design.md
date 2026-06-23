@@ -26,6 +26,7 @@
 - Do not write simplified, interpolated, or smoothed points back to storage.
 - API responses may add `raw_status`; stored raw records remain unchanged.
 - Public API reads may power the read-only viewer.
+- Location records must keep a `YYYY-MM-DD` route date so the web map can query one day's movement history.
 - `LOCATION_SHARE_TOKEN` or the rotated stored token must protect uploads and administrator mutations.
 - Do not expose token entry, token rotation, or admin settings on the public viewer host.
 - The authenticated admin page may show the active upload token so the administrator can copy it into the Android app.
@@ -64,6 +65,7 @@
 - Admin PIN input may show typed digits plainly; invalid PIN feedback must be visually explicit.
 - Admin map camera must reset retained padding before focusing the tracked location.
 - Last updated time, current coordinate, distance, and total public viewer watch time must be visible.
+- The selected route date must be visible on screen and editable through a compact calendar date input.
 - Do not show a separate movement-history list in the dashboard.
 - Keep raw point details in API data or developer tooling, not in the main UI.
 - Use local Wanted Sans from `web/public/fonts/WantedSansVariable.woff2`.

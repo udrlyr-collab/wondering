@@ -11,6 +11,8 @@ const pinFormEl = document.querySelector("#pinForm");
 const pinInput = document.querySelector("#pinInput");
 const pinFeedbackEl = document.querySelector("#pinFeedback");
 const dateInput = document.querySelector("#dateInput");
+const routeDateInput = document.querySelector("#routeDateInput");
+const selectedDateLabelEl = document.querySelector("#selectedDateLabel");
 const pollSelect = document.querySelector("#pollSelect");
 const publicPollSelect = document.querySelector("#publicPollSelect");
 const publicMaxRecordsInput = document.querySelector("#publicMaxRecordsInput");
@@ -83,6 +85,7 @@ let markerAnimation = null;
 let latestTrackedLngLat = null;
 let mapReady = false;
 let hasInitialLocationFocus = false;
+let selectedRouteDate = "";
 let appSettings = { ...DEFAULT_SETTINGS };
 let viewerTotalViewMs = 0;
 let viewerPendingViewMs = 0;
@@ -117,6 +120,7 @@ document.body.classList.toggle("is-viewer", !isAdminMode);
 if (modeLabelEl) modeLabelEl.textContent = isAdminMode ? "Admin" : "Viewing Time";
 setAdminUnlocked(false);
 if (!isAdminMode) startViewerStats();
+syncRouteDate(routeDateInput?.value || dateInput?.value || todayDateValue());
 
 pinFormEl?.addEventListener("submit", loginAdmin);
 document.querySelector("#lockAdminButton")?.addEventListener("click", lockAdmin);
@@ -126,9 +130,8 @@ document.querySelector("#generateTokenButton")?.addEventListener("click", genera
 document.querySelector("#rotateTokenButton")?.addEventListener("click", rotateUploadToken);
 locateCurrentButton?.addEventListener("click", focusTrackedLocation);
 
-dateInput?.addEventListener("change", () => {
-  loadLocations();
-});
+routeDateInput?.addEventListener("change", () => changeRouteDate(routeDateInput.value));
+dateInput?.addEventListener("change", () => changeRouteDate(dateInput.value));
 pollSelect?.addEventListener("change", resetPolling);
 map.on("zoomend", () => loadLocations({ keepViewport: true }));
 map.on("pitchend", updateMapDiagnostics);
@@ -182,6 +185,45 @@ function resizeMapNow() {
 function resetCameraPadding() {
   if (typeof map.setPadding !== "function") return;
   map.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
+}
+
+function todayDateValue() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeDateValue(value) {
+  const text = String(value || "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
+}
+
+function formatRouteDate(value) {
+  const normalized = normalizeDateValue(value);
+  if (!normalized) return "All Dates";
+  const [year, month, day] = normalized.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+  }).format(date);
+}
+
+function syncRouteDate(value) {
+  selectedRouteDate = normalizeDateValue(value) || todayDateValue();
+  if (routeDateInput) routeDateInput.value = selectedRouteDate;
+  if (dateInput) dateInput.value = selectedRouteDate;
+  if (selectedDateLabelEl) selectedDateLabelEl.textContent = formatRouteDate(selectedRouteDate);
+}
+
+function changeRouteDate(value) {
+  syncRouteDate(value);
+  hasInitialLocationFocus = false;
+  loadLocations();
 }
 
 function adminMessage(message) {
@@ -1214,7 +1256,7 @@ async function loadLocations(options = {}) {
   if (!mapReady) return;
   try {
     const params = new URLSearchParams({ limit: String(selectedLimit()) });
-    if (isAdminMode && dateInput?.value) params.set("date", dateInput.value);
+    if (selectedRouteDate) params.set("date", selectedRouteDate);
     const res = await fetch(`/api/locations?${params.toString()}`, { headers: headers() });
     if (res.status === 401) {
       setOperationalStatus("TOKEN REQ", false);

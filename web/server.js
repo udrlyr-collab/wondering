@@ -6,6 +6,7 @@ const crypto = require("crypto");
 const port = Number(process.env.PORT || 5174);
 const envToken = process.env.LOCATION_SHARE_TOKEN || "";
 const adminPin = process.env.ADMIN_PIN || "";
+const appTimeZone = process.env.APP_TIME_ZONE || "Asia/Seoul";
 const publicDir = path.join(__dirname, "public");
 const dataDir = path.join(__dirname, "data");
 const dataFile = path.join(dataDir, "locations.jsonl");
@@ -243,7 +244,30 @@ function distanceMeters(a, b) {
 }
 
 function dateFromTimestamp(timestamp) {
-  return new Date(timestamp).toISOString().slice(0, 10);
+  const number = Number(timestamp);
+  if (!Number.isFinite(number) || number <= 0) return "";
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: appTimeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date(timestamp));
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    if (values.year && values.month && values.day) return `${values.year}-${values.month}-${values.day}`;
+  } catch {
+    // Fall back to UTC if the configured time zone is invalid.
+  }
+  return new Date(number).toISOString().slice(0, 10);
+}
+
+function normalizeDateParam(value) {
+  const text = String(value || "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
+}
+
+function recordDate(record) {
+  return normalizeDateParam(record.date) || dateFromTimestamp(record.timestamp);
 }
 
 function normalizeShareStateEvent(value) {
@@ -347,7 +371,7 @@ function normalizePoint(input) {
     latitude,
     longitude,
     timestamp,
-    date: String(input.date || ""),
+    date: normalizeDateParam(input.date) || dateFromTimestamp(timestamp),
     source: String(input.source || "gps"),
     accuracyMeters,
     speedMps,
@@ -368,7 +392,7 @@ function normalizeShareState(input, event) {
     deviceId: String(input.deviceId || "android"),
     deviceName: String(input.deviceName || "Android"),
     timestamp,
-    date: String(input.date || dateFromTimestamp(timestamp)),
+    date: normalizeDateParam(input.date) || dateFromTimestamp(timestamp),
     source: String(input.source || "share_state"),
     distanceMeters: Number(input.distanceMeters || 0),
   };
@@ -463,9 +487,9 @@ async function handleApi(req, res, url) {
     const limit = Number.isFinite(requestedLimit)
       ? Math.max(1, Math.min(requestedLimit, settings.publicMaxRecords))
       : settings.publicMaxRecords;
-    const date = url.searchParams.get("date");
+    const date = normalizeDateParam(url.searchParams.get("date"));
     const records = withRawStatus(loadRecords())
-      .filter((record) => !date || record.date === date)
+      .filter((record) => !date || recordDate(record) === date)
       .sort((a, b) => a.timestamp - b.timestamp);
     sendJson(res, 200, { records: records.slice(-limit), displayRules: DISPLAY_RULES, settings });
     return;
