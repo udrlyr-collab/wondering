@@ -94,5 +94,6 @@
 - Keep settings compact and administrator-oriented.
 - Expose sharing enabled, server URL, token, and upload interval.
 - Show a local recent upload history list with success/failure state, time, response code, coordinate, accuracy, and distance.
+- Show whether the app is currently sending to the server, the last upload result, and the remaining time until the next expected upload.
 - Default server URL is `https://wondering.kr`.
 - Do not start sharing without explicit user action.

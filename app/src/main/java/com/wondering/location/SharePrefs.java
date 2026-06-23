@@ -15,6 +15,13 @@ final class SharePrefs {
     static final String KEY_DEVICE_NAME = "device_name";
     static final String KEY_REFRESH_MS = "refresh_ms";
     static final String KEY_DISTANCE_M = "distance_m";
+    static final String KEY_SERVICE_RUNNING = "service_running";
+    static final String KEY_UPLOAD_IN_PROGRESS = "upload_in_progress";
+    static final String KEY_LAST_UPLOAD_AT = "last_upload_at";
+    static final String KEY_NEXT_UPLOAD_AT = "next_upload_at";
+    static final String KEY_LAST_UPLOAD_SUCCESS = "last_upload_success";
+    static final String KEY_LAST_UPLOAD_HTTP = "last_upload_http";
+    static final String KEY_LAST_UPLOAD_MESSAGE = "last_upload_message";
 
     static final String DEFAULT_ENDPOINT = "https://wondering.kr";
     private static final String LEGACY_LOCAL_ENDPOINT = "http://10.0.2.2:5174";

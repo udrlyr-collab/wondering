@@ -10,6 +10,8 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
@@ -24,8 +26,11 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class MainActivity extends Activity {
     private static final int CUSTOM_INTERVAL_ID = 900001;
@@ -36,12 +41,22 @@ public class MainActivity extends Activity {
     private EditText tokenInput;
     private EditText customIntervalInput;
     private TextView stateText;
+    private TextView uploadStatusText;
     private TextView uploadHistoryText;
     private RadioGroup intervalGroup;
     private boolean historyReceiverRegistered;
+    private final Handler statusHandler = new Handler(Looper.getMainLooper());
+    private final Runnable statusTicker = new Runnable() {
+        @Override
+        public void run() {
+            updateUploadStatus();
+            statusHandler.postDelayed(this, 1000L);
+        }
+    };
     private final BroadcastReceiver uploadHistoryReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
+            updateUploadStatus();
             updateUploadHistory();
         }
     };
@@ -68,6 +83,8 @@ public class MainActivity extends Activity {
             historyReceiverRegistered = true;
         }
         updateUploadHistory();
+        statusHandler.removeCallbacks(statusTicker);
+        statusHandler.post(statusTicker);
     }
 
     @Override
@@ -76,12 +93,14 @@ public class MainActivity extends Activity {
             unregisterReceiver(uploadHistoryReceiver);
             historyReceiverRegistered = false;
         }
+        statusHandler.removeCallbacks(statusTicker);
         super.onStop();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        updateUploadStatus();
         updateUploadHistory();
     }
 
@@ -99,6 +118,9 @@ public class MainActivity extends Activity {
 
         stateText = text("", 14, false);
         root.addView(stateText);
+        uploadStatusText = text("", 14, false);
+        uploadStatusText.setPadding(0, dp(8), 0, dp(8));
+        root.addView(uploadStatusText);
         root.addView(space(18));
 
         enabledSwitch = new Switch(this);
@@ -181,12 +203,71 @@ public class MainActivity extends Activity {
             customIntervalInput.setText(String.valueOf(refreshMs / 1000));
         }
         updateCustomIntervalState();
+        updateUploadStatus();
         stateText.setText(enabledSwitch.isChecked() ? "공유 상태: 켜짐" : "공유 상태: 꺼짐");
     }
 
     private void updateUploadHistory() {
         if (uploadHistoryText == null || prefs == null) return;
         uploadHistoryText.setText(UploadHistoryStore.formattedHistory(this));
+    }
+
+    private void updateUploadStatus() {
+        if (uploadStatusText == null || prefs == null) return;
+
+        boolean enabled = prefs.getBoolean(SharePrefs.KEY_ENABLED, false);
+        boolean running = prefs.getBoolean(SharePrefs.KEY_SERVICE_RUNNING, false);
+        boolean sending = prefs.getBoolean(SharePrefs.KEY_UPLOAD_IN_PROGRESS, false);
+        long lastUploadAt = prefs.getLong(SharePrefs.KEY_LAST_UPLOAD_AT, 0L);
+        long nextUploadAt = prefs.getLong(SharePrefs.KEY_NEXT_UPLOAD_AT, 0L);
+        boolean lastSuccess = prefs.getBoolean(SharePrefs.KEY_LAST_UPLOAD_SUCCESS, false);
+        int lastHttp = prefs.getInt(SharePrefs.KEY_LAST_UPLOAD_HTTP, -1);
+        String message = prefs.getString(SharePrefs.KEY_LAST_UPLOAD_MESSAGE, "");
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("Service: ");
+        if (!enabled) builder.append("off");
+        else builder.append(running ? "running" : "starting");
+
+        builder.append("\nSending: ").append(sending ? "yes" : "no");
+
+        builder.append("\nNext upload: ");
+        if (!enabled) {
+            builder.append("-");
+        } else if (sending) {
+            builder.append("now");
+        } else if (nextUploadAt > 0L) {
+            builder.append("in ").append(formatDuration(Math.max(0L, nextUploadAt - System.currentTimeMillis())));
+        } else {
+            builder.append("waiting for location");
+        }
+
+        builder.append("\nLast upload: ");
+        if (lastUploadAt > 0L) {
+            builder.append(formatTime(lastUploadAt))
+                .append(lastSuccess ? " OK" : " FAIL");
+            if (lastHttp > 0) builder.append(" HTTP ").append(lastHttp);
+        } else {
+            builder.append("-");
+        }
+
+        if (message != null && !message.trim().isEmpty()) {
+            builder.append("\nStatus: ").append(message.trim());
+        }
+
+        uploadStatusText.setText(builder.toString());
+    }
+
+    private String formatDuration(long durationMs) {
+        long totalSeconds = Math.max(0L, durationMs / 1000L);
+        long minutes = totalSeconds / 60L;
+        long seconds = totalSeconds % 60L;
+        if (minutes > 0L) return minutes + "m " + String.format(Locale.US, "%02ds", seconds);
+        return seconds + "s";
+    }
+
+    private String formatTime(long timestamp) {
+        return new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date(timestamp));
     }
 
     private void saveSettings(boolean toast) {
@@ -197,6 +278,7 @@ public class MainActivity extends Activity {
             .putLong(SharePrefs.KEY_REFRESH_MS, refreshMs)
             .apply();
         restartIfEnabled();
+        updateUploadStatus();
         if (toast) Toast.makeText(this, "저장했습니다", Toast.LENGTH_SHORT).show();
     }
 
@@ -239,6 +321,7 @@ public class MainActivity extends Activity {
         if (enabled) startTrackingService();
         else stopService(new Intent(this, LocationShareService.class));
         refreshUi();
+        updateUploadStatus();
     }
 
     private void restartIfEnabled() {

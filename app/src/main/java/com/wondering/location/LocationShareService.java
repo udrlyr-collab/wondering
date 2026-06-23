@@ -51,6 +51,7 @@ public class LocationShareService extends Service {
         prefs = SharePrefs.get(this);
         fusedLocation = LocationServices.getFusedLocationProviderClient(this);
         distanceM = prefs.getFloat(SharePrefs.KEY_DISTANCE_M, 0f);
+        markServiceRunning("Service starting");
         createChannel();
         startForeground(NOTIFICATION_ID, notification("위치 공유 준비 중"));
         startLocationUpdates();
@@ -59,6 +60,7 @@ public class LocationShareService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (!prefs.getBoolean(SharePrefs.KEY_ENABLED, false)) {
+            markServiceStopped("Sharing disabled");
             stopSelf();
             return START_NOT_STICKY;
         }
@@ -71,6 +73,7 @@ public class LocationShareService extends Service {
         if (prefs != null && !prefs.getBoolean(SharePrefs.KEY_ENABLED, false)) {
             ShareStateUploader.uploadAsync(this, "sharing_off", distanceM);
         }
+        markServiceStopped("Service stopped");
         executor.shutdownNow();
         super.onDestroy();
     }
@@ -83,6 +86,7 @@ public class LocationShareService extends Service {
     @SuppressWarnings("MissingPermission")
     private void startLocationUpdates() {
         if (!hasLocationPermission()) {
+            markServiceStopped("Location permission missing");
             stopSelf();
             return;
         }
@@ -111,6 +115,7 @@ public class LocationShareService extends Service {
         };
 
         fusedLocation.requestLocationUpdates(request, callback, Looper.getMainLooper());
+        updateUploadStatus(false, "Waiting for location", -1, false, 0L, System.currentTimeMillis() + intervalMs);
     }
 
     private boolean hasLocationPermission() {
@@ -123,6 +128,7 @@ public class LocationShareService extends Service {
         updateDistance(location);
         NotificationManager nm = getSystemService(NotificationManager.class);
         nm.notify(NOTIFICATION_ID, notification("위치 전송 중 · " + Math.round(distanceM) + "m"));
+        updateUploadStatus(true, "Sending to server", -1, false, 0L, System.currentTimeMillis() + currentIntervalMs());
         executor.execute(() -> upload(location));
     }
 
@@ -185,7 +191,61 @@ public class LocationShareService extends Service {
         } finally {
             if (conn != null) conn.disconnect();
             UploadHistoryStore.recordLocation(this, timestamp, location, distanceM, httpStatus, success, message);
+            updateUploadStatus(false, success ? "Last upload OK" : message, httpStatus, success, timestamp, System.currentTimeMillis() + currentIntervalMs());
         }
+    }
+
+    private long currentIntervalMs() {
+        return SharePrefs.safeRefreshMs(prefs.getLong(SharePrefs.KEY_REFRESH_MS, SharePrefs.DEFAULT_REFRESH_MS));
+    }
+
+    private void markServiceRunning(String message) {
+        long now = System.currentTimeMillis();
+        prefs.edit()
+            .putBoolean(SharePrefs.KEY_SERVICE_RUNNING, true)
+            .putBoolean(SharePrefs.KEY_UPLOAD_IN_PROGRESS, false)
+            .putString(SharePrefs.KEY_LAST_UPLOAD_MESSAGE, message)
+            .putLong(SharePrefs.KEY_NEXT_UPLOAD_AT, now + currentIntervalMs())
+            .apply();
+        notifyStatusChanged();
+    }
+
+    private void markServiceStopped(String message) {
+        prefs.edit()
+            .putBoolean(SharePrefs.KEY_SERVICE_RUNNING, false)
+            .putBoolean(SharePrefs.KEY_UPLOAD_IN_PROGRESS, false)
+            .putString(SharePrefs.KEY_LAST_UPLOAD_MESSAGE, message)
+            .putLong(SharePrefs.KEY_NEXT_UPLOAD_AT, 0L)
+            .apply();
+        notifyStatusChanged();
+    }
+
+    private void updateUploadStatus(
+        boolean inProgress,
+        String message,
+        int httpStatus,
+        boolean success,
+        long lastUploadAt,
+        long nextUploadAt
+    ) {
+        SharedPreferences.Editor edit = prefs.edit()
+            .putBoolean(SharePrefs.KEY_SERVICE_RUNNING, true)
+            .putBoolean(SharePrefs.KEY_UPLOAD_IN_PROGRESS, inProgress)
+            .putString(SharePrefs.KEY_LAST_UPLOAD_MESSAGE, message == null ? "" : message)
+            .putLong(SharePrefs.KEY_NEXT_UPLOAD_AT, nextUploadAt);
+        if (lastUploadAt > 0L) {
+            edit.putLong(SharePrefs.KEY_LAST_UPLOAD_AT, lastUploadAt)
+                .putBoolean(SharePrefs.KEY_LAST_UPLOAD_SUCCESS, success)
+                .putInt(SharePrefs.KEY_LAST_UPLOAD_HTTP, httpStatus);
+        }
+        edit.apply();
+        notifyStatusChanged();
+    }
+
+    private void notifyStatusChanged() {
+        Intent intent = new Intent(UploadHistoryStore.ACTION_CHANGED);
+        intent.setPackage(getPackageName());
+        sendBroadcast(intent);
     }
 
     private Notification notification(String text) {
