@@ -82,6 +82,7 @@ let marker = null;
 let markerAnimation = null;
 let latestTrackedLngLat = null;
 let mapReady = false;
+let hasInitialLocationFocus = false;
 let appSettings = { ...DEFAULT_SETTINGS };
 let viewerTotalViewMs = 0;
 let viewerPendingViewMs = 0;
@@ -1199,6 +1200,11 @@ function render(records, options = {}) {
   coordsEl.textContent = `${latestDisplay.latitude.toFixed(5)} / ${latestDisplay.longitude.toFixed(5)}`;
   latestTrackedLngLat = toLngLat(latestDisplay);
   setLocateButtonEnabled(true);
+
+  if (!options.keepViewport && !hasInitialLocationFocus) {
+    hasInitialLocationFocus = true;
+    focusTrackedLocation();
+  }
 
   animateMarkerTo(latestTrackedLngLat);
   updateAccuracyArea(latestDisplay);
