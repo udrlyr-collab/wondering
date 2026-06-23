@@ -1316,10 +1316,26 @@ function updateFreshness(latest) {
     return;
   }
 
-  const isStale = Date.now() - latest.timestamp > 120000 || latest.raw_status !== "valid";
-  setOperationalStatus(isStale ? "OFFLINE" : "LIVE", !isStale);
-  setLocationSharingIndicator(!isStale);
-  mapInstructionEl.textContent = isStale ? "새 위치 수신 대기 중" : "실시간 위치 추적 중";
+  const isStale = Date.now() - latest.timestamp > 120000;
+  if (isStale) {
+    setOperationalStatus("OFFLINE", false);
+    setLocationSharingIndicator(false);
+    mapInstructionEl.textContent = "새 위치 수신 대기 중";
+    mapSubStatusEl.textContent = `${latest.deviceName || "Android"} · ${fmtClock(latest.timestamp)}`;
+    return;
+  }
+
+  if (latest.raw_status === "low_accuracy") {
+    setOperationalStatus("GPS WEAK", false);
+    setLocationSharingIndicator(true);
+    mapInstructionEl.textContent = "GPS 정확도 낮음";
+    mapSubStatusEl.textContent = `${latest.deviceName || "Android"} · ${fmtClock(latest.timestamp)}`;
+    return;
+  }
+
+  setOperationalStatus("LIVE", true);
+  setLocationSharingIndicator(true);
+  mapInstructionEl.textContent = "실시간 위치 추적 중";
   mapSubStatusEl.textContent = `${latest.deviceName || "Android"} · ${fmtClock(latest.timestamp)}`;
 }
 

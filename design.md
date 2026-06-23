@@ -90,6 +90,7 @@
 - Current location and previous route must be visually distinct.
 - Current marker is a blue circle with a white border, a subtle pulse, and an accuracy circle when available.
 - If updates stop, show waiting or age-based status text.
+- Recent `low_accuracy` uploads must show `GPS WEAK`, not `OFFLINE`.
 
 ## Android UI Rules
 
