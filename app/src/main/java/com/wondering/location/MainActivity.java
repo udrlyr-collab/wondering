@@ -2,7 +2,10 @@ package com.wondering.location;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -33,7 +36,15 @@ public class MainActivity extends Activity {
     private EditText tokenInput;
     private EditText customIntervalInput;
     private TextView stateText;
+    private TextView uploadHistoryText;
     private RadioGroup intervalGroup;
+    private boolean historyReceiverRegistered;
+    private final BroadcastReceiver uploadHistoryReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            updateUploadHistory();
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,6 +53,36 @@ public class MainActivity extends Activity {
         requestNeededPermissions();
         setContentView(buildContent());
         refreshUi();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (!historyReceiverRegistered) {
+            IntentFilter filter = new IntentFilter(UploadHistoryStore.ACTION_CHANGED);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(uploadHistoryReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                registerReceiver(uploadHistoryReceiver, filter);
+            }
+            historyReceiverRegistered = true;
+        }
+        updateUploadHistory();
+    }
+
+    @Override
+    protected void onStop() {
+        if (historyReceiverRegistered) {
+            unregisterReceiver(uploadHistoryReceiver);
+            historyReceiverRegistered = false;
+        }
+        super.onStop();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateUploadHistory();
     }
 
     private View buildContent() {
@@ -113,6 +154,12 @@ public class MainActivity extends Activity {
         stop.setOnClickListener(v -> setSharing(false));
         root.addView(stop);
 
+        root.addView(space(14));
+        root.addView(text("Upload history", 18, true));
+        uploadHistoryText = text("", 13, false);
+        uploadHistoryText.setPadding(0, dp(8), 0, dp(8));
+        root.addView(uploadHistoryText);
+
         root.addView(space(18));
         root.addView(text("기본 업로드 간격은 60초입니다. 5초/10초는 더 빠르게 반영되지만 배터리 사용량이 늘 수 있습니다.", 13, false));
         return scroll;
@@ -135,6 +182,11 @@ public class MainActivity extends Activity {
         }
         updateCustomIntervalState();
         stateText.setText(enabledSwitch.isChecked() ? "공유 상태: 켜짐" : "공유 상태: 꺼짐");
+    }
+
+    private void updateUploadHistory() {
+        if (uploadHistoryText == null || prefs == null) return;
+        uploadHistoryText.setText(UploadHistoryStore.formattedHistory(this));
     }
 
     private void saveSettings(boolean toast) {

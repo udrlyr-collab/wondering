@@ -226,6 +226,10 @@ function changeRouteDate(value) {
   loadLocations();
 }
 
+function isSelectedRouteToday() {
+  return selectedRouteDate === todayDateValue();
+}
+
 function adminMessage(message) {
   if (!adminFeedbackEl) return;
   adminFeedbackEl.textContent = message;
@@ -1120,6 +1124,23 @@ function clearMapData() {
   map.getSource("accuracy-area").setData(emptyFeatureCollection);
 }
 
+function clearAccuracyArea() {
+  if (!mapReady) return;
+  map.getSource("accuracy-area").setData(emptyFeatureCollection);
+}
+
+function removeCurrentMarker() {
+  if (markerAnimation) {
+    cancelAnimationFrame(markerAnimation);
+    markerAnimation = null;
+  }
+  if (marker) {
+    marker.remove();
+    marker = null;
+  }
+  clearAccuracyArea();
+}
+
 function drawRoute(segments) {
   if (!mapReady) return;
   map.getSource("display-route").setData(routeGeoJson(segments));
@@ -1220,6 +1241,7 @@ function render(records, options = {}) {
     coordsEl.textContent = "- / -";
     distanceEl.textContent = "0 M";
     clearMapData();
+    removeCurrentMarker();
     return;
   }
 
@@ -1235,21 +1257,26 @@ function render(records, options = {}) {
     coordsEl.textContent = "- / -";
     latestTrackedLngLat = null;
     setLocateButtonEnabled(false);
-    updateAccuracyArea({ latitude: 0, longitude: 0, accuracyMeters: null });
+    removeCurrentMarker();
     return;
   }
 
   coordsEl.textContent = `${latestDisplay.latitude.toFixed(5)} / ${latestDisplay.longitude.toFixed(5)}`;
   latestTrackedLngLat = toLngLat(latestDisplay);
-  setLocateButtonEnabled(true);
+  const showCurrentLocation = isSelectedRouteToday();
+  setLocateButtonEnabled(showCurrentLocation);
 
   if (!options.keepViewport && !hasInitialLocationFocus) {
     hasInitialLocationFocus = true;
     focusTrackedLocation();
   }
 
-  animateMarkerTo(latestTrackedLngLat);
-  updateAccuracyArea(latestDisplay);
+  if (showCurrentLocation) {
+    animateMarkerTo(latestTrackedLngLat);
+    updateAccuracyArea(latestDisplay);
+  } else {
+    removeCurrentMarker();
+  }
 }
 
 async function loadLocations(options = {}) {

@@ -66,6 +66,7 @@
 - Admin map camera must reset retained padding before focusing the tracked location.
 - Last updated time, current coordinate, distance, and total public viewer watch time must be visible.
 - The selected route date must be visible on screen and editable through a compact calendar date input.
+- When viewing a non-today route date, do not show the live current-location marker or live accuracy circle.
 - Do not show a separate movement-history list in the dashboard.
 - Keep raw point details in API data or developer tooling, not in the main UI.
 - Use local Wanted Sans from `web/public/fonts/WantedSansVariable.woff2`.
@@ -92,5 +93,6 @@
 
 - Keep settings compact and administrator-oriented.
 - Expose sharing enabled, server URL, token, and upload interval.
+- Show a local recent upload history list with success/failure state, time, response code, coordinate, accuracy, and distance.
 - Default server URL is `https://wondering.kr`.
 - Do not start sharing without explicit user action.

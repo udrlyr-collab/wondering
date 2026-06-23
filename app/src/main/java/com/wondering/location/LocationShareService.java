@@ -142,6 +142,10 @@ public class LocationShareService extends Service {
 
     private void upload(Location location) {
         HttpURLConnection conn = null;
+        long timestamp = System.currentTimeMillis();
+        int httpStatus = -1;
+        boolean success = false;
+        String message = "";
         try {
             String endpoint = prefs.getString(SharePrefs.KEY_ENDPOINT, SharePrefs.DEFAULT_ENDPOINT);
             conn = (HttpURLConnection) new URL(SharePrefs.apiUrl(endpoint)).openConnection();
@@ -156,7 +160,6 @@ public class LocationShareService extends Service {
                 conn.setRequestProperty("Authorization", "Bearer " + token.trim());
             }
 
-            long timestamp = System.currentTimeMillis();
             JSONObject body = new JSONObject()
                 .put("deviceId", prefs.getString(SharePrefs.KEY_DEVICE_ID, "android"))
                 .put("deviceName", prefs.getString(SharePrefs.KEY_DEVICE_NAME, "Android"))
@@ -174,10 +177,14 @@ public class LocationShareService extends Service {
             try (OutputStream os = conn.getOutputStream()) {
                 os.write(bytes);
             }
-            conn.getResponseCode();
-        } catch (Exception ignored) {
+            httpStatus = conn.getResponseCode();
+            success = httpStatus >= 200 && httpStatus < 300;
+            if (!success) message = "Server rejected upload.";
+        } catch (Exception ex) {
+            message = ex.getClass().getSimpleName();
         } finally {
             if (conn != null) conn.disconnect();
+            UploadHistoryStore.recordLocation(this, timestamp, location, distanceM, httpStatus, success, message);
         }
     }
 

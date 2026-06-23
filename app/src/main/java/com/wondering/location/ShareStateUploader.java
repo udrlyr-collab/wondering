@@ -23,6 +23,10 @@ final class ShareStateUploader {
     private static void upload(Context context, String event, float distanceM) {
         SharedPreferences prefs = SharePrefs.get(context);
         HttpURLConnection conn = null;
+        long timestamp = System.currentTimeMillis();
+        int httpStatus = -1;
+        boolean success = false;
+        String message = "";
         try {
             String endpoint = prefs.getString(SharePrefs.KEY_ENDPOINT, SharePrefs.DEFAULT_ENDPOINT);
             conn = (HttpURLConnection) new URL(SharePrefs.apiUrl(endpoint)).openConnection();
@@ -37,7 +41,6 @@ final class ShareStateUploader {
                 conn.setRequestProperty("Authorization", "Bearer " + token.trim());
             }
 
-            long timestamp = System.currentTimeMillis();
             JSONObject body = new JSONObject()
                 .put("recordType", "event")
                 .put("event", event)
@@ -52,10 +55,14 @@ final class ShareStateUploader {
             try (OutputStream os = conn.getOutputStream()) {
                 os.write(bytes);
             }
-            conn.getResponseCode();
-        } catch (Exception ignored) {
+            httpStatus = conn.getResponseCode();
+            success = httpStatus >= 200 && httpStatus < 300;
+            if (!success) message = "Server rejected upload.";
+        } catch (Exception ex) {
+            message = ex.getClass().getSimpleName();
         } finally {
             if (conn != null) conn.disconnect();
+            UploadHistoryStore.recordEvent(context, timestamp, event, distanceM, httpStatus, success, message);
         }
     }
 }
