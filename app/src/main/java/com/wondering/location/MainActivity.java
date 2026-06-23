@@ -2,6 +2,7 @@ package com.wondering.location;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -15,13 +16,14 @@ import android.os.Looper;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.RadioButton;
-import android.widget.RadioGroup;
 import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -33,7 +35,22 @@ import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
-    private static final int CUSTOM_INTERVAL_ID = 900001;
+    private static final int CUSTOM_INTERVAL_POSITION = 5;
+    private static final String[] INTERVAL_LABELS = {
+        "5 sec",
+        "10 sec",
+        "15 sec",
+        "60 sec",
+        "5 min",
+        "Custom"
+    };
+    private static final long[] INTERVAL_VALUES = {
+        5000L,
+        10000L,
+        15000L,
+        60000L,
+        300000L
+    };
 
     private SharedPreferences prefs;
     private Switch enabledSwitch;
@@ -42,8 +59,7 @@ public class MainActivity extends Activity {
     private EditText customIntervalInput;
     private TextView stateText;
     private TextView uploadStatusText;
-    private TextView uploadHistoryText;
-    private RadioGroup intervalGroup;
+    private Spinner intervalSpinner;
     private boolean historyReceiverRegistered;
     private final Handler statusHandler = new Handler(Looper.getMainLooper());
     private final Runnable statusTicker = new Runnable() {
@@ -57,7 +73,6 @@ public class MainActivity extends Activity {
         @Override
         public void onReceive(Context context, Intent intent) {
             updateUploadStatus();
-            updateUploadHistory();
         }
     };
 
@@ -82,7 +97,6 @@ public class MainActivity extends Activity {
             }
             historyReceiverRegistered = true;
         }
-        updateUploadHistory();
         statusHandler.removeCallbacks(statusTicker);
         statusHandler.post(statusTicker);
     }
@@ -101,7 +115,6 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         updateUploadStatus();
-        updateUploadHistory();
     }
 
     private View buildContent() {
@@ -109,81 +122,93 @@ public class MainActivity extends Activity {
         scroll.setFillViewport(true);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(28), dp(20), dp(28));
+        root.setPadding(dp(18), dp(20), dp(18), dp(20));
         scroll.addView(root);
 
-        root.addView(text("Wondering Location", 24, true));
-        root.addView(text("관리자용 위치 공유 앱", 14, false));
-        root.addView(space(22));
-
-        stateText = text("", 14, false);
-        root.addView(stateText);
-        uploadStatusText = text("", 14, false);
-        uploadStatusText.setPadding(0, dp(8), 0, dp(8));
-        root.addView(uploadStatusText);
-        root.addView(space(18));
-
-        enabledSwitch = new Switch(this);
-        enabledSwitch.setText("웹 위치 공유");
-        enabledSwitch.setTextSize(17);
-        enabledSwitch.setOnCheckedChangeListener(this::onEnabledChanged);
-        root.addView(enabledSwitch);
-        root.addView(space(16));
-
-        endpointInput = input("https://wondering.kr");
-        root.addView(label("서버 주소"));
-        root.addView(endpointInput);
+        TextView title = text("Wondering Location", 23, true);
+        root.addView(title);
+        root.addView(text("Admin GPS uploader", 13, false));
         root.addView(space(14));
 
-        tokenInput = input("업로드 토큰");
-        root.addView(label("업로드 토큰"));
+        stateText = text("", 14, true);
+        root.addView(stateText);
+
+        uploadStatusText = text("", 13, false);
+        uploadStatusText.setPadding(0, dp(8), 0, dp(8));
+        root.addView(uploadStatusText);
+        root.addView(space(10));
+
+        enabledSwitch = new Switch(this);
+        enabledSwitch.setText("Location sharing");
+        enabledSwitch.setTextSize(16);
+        enabledSwitch.setOnCheckedChangeListener(this::onEnabledChanged);
+        root.addView(enabledSwitch);
+        root.addView(space(12));
+
+        root.addView(label("Server URL"));
+        endpointInput = input("https://wondering.kr");
+        root.addView(endpointInput);
+        root.addView(space(10));
+
+        root.addView(label("Upload token"));
+        tokenInput = input("Token from admin.wondering.kr");
         root.addView(tokenInput);
-        root.addView(space(18));
+        root.addView(space(10));
 
-        root.addView(label("업로드 간격"));
-        intervalGroup = new RadioGroup(this);
-        intervalGroup.setOrientation(RadioGroup.VERTICAL);
-        intervalGroup.addView(radio("5초", 5000));
-        intervalGroup.addView(radio("10초", 10000));
-        intervalGroup.addView(radio("15초", 15000));
-        intervalGroup.addView(radio("60초", 60000));
-        intervalGroup.addView(radio("5분", 300000));
-        intervalGroup.addView(radio("Custom", CUSTOM_INTERVAL_ID));
-        intervalGroup.setOnCheckedChangeListener((group, checkedId) -> updateCustomIntervalState());
-        root.addView(intervalGroup);
+        root.addView(label("Upload interval"));
+        intervalSpinner = new Spinner(this);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+            this,
+            android.R.layout.simple_spinner_item,
+            INTERVAL_LABELS
+        );
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        intervalSpinner.setAdapter(adapter);
+        intervalSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                updateCustomIntervalState();
+            }
 
-        customIntervalInput = input("커스텀 초 단위, 예: 30");
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                updateCustomIntervalState();
+            }
+        });
+        root.addView(intervalSpinner);
+
+        customIntervalInput = input("Custom seconds");
         customIntervalInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         customIntervalInput.setOnFocusChangeListener((view, hasFocus) -> {
-            if (hasFocus) intervalGroup.check(CUSTOM_INTERVAL_ID);
+            if (hasFocus) intervalSpinner.setSelection(CUSTOM_INTERVAL_POSITION);
         });
-        customIntervalInput.setOnClickListener(view -> intervalGroup.check(CUSTOM_INTERVAL_ID));
+        customIntervalInput.setOnClickListener(view -> intervalSpinner.setSelection(CUSTOM_INTERVAL_POSITION));
         root.addView(customIntervalInput);
-        root.addView(space(22));
+        root.addView(space(12));
 
-        Button save = button("설정 저장");
+        Button save = button("Save settings");
         save.setOnClickListener(v -> saveSettings(true));
         root.addView(save);
 
-        Button start = button("서비스 시작");
+        LinearLayout serviceRow = row();
+        Button start = button("Start");
         start.setOnClickListener(v -> {
             saveSettings(false);
             setSharing(true);
         });
-        root.addView(start);
-
-        Button stop = button("서비스 중지");
+        Button stop = button("Stop");
         stop.setOnClickListener(v -> setSharing(false));
-        root.addView(stop);
+        serviceRow.addView(start, weightedButtonParams(6));
+        serviceRow.addView(spaceHorizontal(8));
+        serviceRow.addView(stop, weightedButtonParams(6));
+        root.addView(serviceRow);
 
-        root.addView(space(14));
-        root.addView(text("Upload history", 18, true));
-        uploadHistoryText = text("", 13, false);
-        uploadHistoryText.setPadding(0, dp(8), 0, dp(8));
-        root.addView(uploadHistoryText);
+        Button history = button("Upload history");
+        history.setOnClickListener(v -> showUploadHistoryDialog());
+        root.addView(history);
 
-        root.addView(space(18));
-        root.addView(text("기본 업로드 간격은 60초입니다. 5초/10초는 더 빠르게 반영되지만 배터리 사용량이 늘 수 있습니다.", 13, false));
+        root.addView(space(8));
+        root.addView(text("60 sec is the balanced default. Short intervals update faster and use more battery.", 12, false));
         return scroll;
     }
 
@@ -195,21 +220,16 @@ public class MainActivity extends Activity {
             prefs.getLong(SharePrefs.KEY_REFRESH_MS, SharePrefs.DEFAULT_REFRESH_MS)
         );
 
-        if (isPresetRefreshMs(refreshMs)) {
-            intervalGroup.check((int) refreshMs);
-            customIntervalInput.setText("");
+        int position = intervalPosition(refreshMs);
+        intervalSpinner.setSelection(position);
+        if (position == CUSTOM_INTERVAL_POSITION) {
+            customIntervalInput.setText(String.valueOf(refreshMs / 1000L));
         } else {
-            intervalGroup.check(CUSTOM_INTERVAL_ID);
-            customIntervalInput.setText(String.valueOf(refreshMs / 1000));
+            customIntervalInput.setText("");
         }
         updateCustomIntervalState();
         updateUploadStatus();
-        stateText.setText(enabledSwitch.isChecked() ? "공유 상태: 켜짐" : "공유 상태: 꺼짐");
-    }
-
-    private void updateUploadHistory() {
-        if (uploadHistoryText == null || prefs == null) return;
-        uploadHistoryText.setText(UploadHistoryStore.formattedHistory(this));
+        stateText.setText(enabledSwitch.isChecked() ? "Sharing ON" : "Sharing OFF");
     }
 
     private void updateUploadStatus() {
@@ -229,33 +249,46 @@ public class MainActivity extends Activity {
         if (!enabled) builder.append("off");
         else builder.append(running ? "running" : "starting");
 
-        builder.append("\nSending: ").append(sending ? "yes" : "no");
+        builder.append("  |  Sending: ").append(sending ? "yes" : "no");
 
-        builder.append("\nNext upload: ");
+        builder.append("\nNext: ");
         if (!enabled) {
             builder.append("-");
         } else if (sending) {
             builder.append("now");
         } else if (nextUploadAt > 0L) {
-            builder.append("in ").append(formatDuration(Math.max(0L, nextUploadAt - System.currentTimeMillis())));
+            builder.append(formatDuration(Math.max(0L, nextUploadAt - System.currentTimeMillis())));
         } else {
-            builder.append("waiting for location");
+            builder.append("waiting");
         }
 
-        builder.append("\nLast upload: ");
+        builder.append("  |  Last: ");
         if (lastUploadAt > 0L) {
             builder.append(formatTime(lastUploadAt))
                 .append(lastSuccess ? " OK" : " FAIL");
-            if (lastHttp > 0) builder.append(" HTTP ").append(lastHttp);
+            if (lastHttp > 0) builder.append(" ").append(lastHttp);
         } else {
             builder.append("-");
         }
 
         if (message != null && !message.trim().isEmpty()) {
-            builder.append("\nStatus: ").append(message.trim());
+            builder.append("\n").append(message.trim());
         }
 
         uploadStatusText.setText(builder.toString());
+    }
+
+    private void showUploadHistoryDialog() {
+        ScrollView scroll = new ScrollView(this);
+        TextView history = text(UploadHistoryStore.formattedHistory(this), 13, false);
+        history.setPadding(dp(16), dp(12), dp(16), dp(12));
+        scroll.addView(history);
+
+        new AlertDialog.Builder(this)
+            .setTitle("Upload history")
+            .setView(scroll)
+            .setPositiveButton("Close", null)
+            .show();
     }
 
     private String formatDuration(long durationMs) {
@@ -279,12 +312,12 @@ public class MainActivity extends Activity {
             .apply();
         restartIfEnabled();
         updateUploadStatus();
-        if (toast) Toast.makeText(this, "저장했습니다", Toast.LENGTH_SHORT).show();
+        if (toast) Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show();
     }
 
     private long selectedRefreshMs() {
-        int checkedId = intervalGroup.getCheckedRadioButtonId();
-        if (checkedId == CUSTOM_INTERVAL_ID) {
+        int position = intervalSpinner.getSelectedItemPosition();
+        if (position == CUSTOM_INTERVAL_POSITION) {
             String rawSeconds = customIntervalInput.getText().toString().trim();
             try {
                 long seconds = Long.parseLong(rawSeconds);
@@ -293,23 +326,24 @@ public class MainActivity extends Activity {
                 return SharePrefs.DEFAULT_REFRESH_MS;
             }
         }
-        if (checkedId > 0) return SharePrefs.safeRefreshMs(checkedId);
+        if (position >= 0 && position < INTERVAL_VALUES.length) {
+            return SharePrefs.safeRefreshMs(INTERVAL_VALUES[position]);
+        }
         return SharePrefs.DEFAULT_REFRESH_MS;
     }
 
-    private boolean isPresetRefreshMs(long refreshMs) {
-        return refreshMs == 5000L
-            || refreshMs == 10000L
-            || refreshMs == 15000L
-            || refreshMs == 60000L
-            || refreshMs == 300000L;
+    private int intervalPosition(long refreshMs) {
+        for (int i = 0; i < INTERVAL_VALUES.length; i += 1) {
+            if (INTERVAL_VALUES[i] == refreshMs) return i;
+        }
+        return CUSTOM_INTERVAL_POSITION;
     }
 
     private void updateCustomIntervalState() {
-        if (customIntervalInput == null || intervalGroup == null) return;
-        boolean custom = intervalGroup.getCheckedRadioButtonId() == CUSTOM_INTERVAL_ID;
+        if (customIntervalInput == null || intervalSpinner == null) return;
+        boolean custom = intervalSpinner.getSelectedItemPosition() == CUSTOM_INTERVAL_POSITION;
+        customIntervalInput.setVisibility(custom ? View.VISIBLE : View.GONE);
         customIntervalInput.setEnabled(custom);
-        customIntervalInput.setAlpha(custom ? 1f : 0.45f);
     }
 
     private void onEnabledChanged(CompoundButton button, boolean checked) {
@@ -353,8 +387,8 @@ public class MainActivity extends Activity {
     }
 
     private TextView label(String value) {
-        TextView view = text(value, 13, false);
-        view.setPadding(0, 0, 0, dp(6));
+        TextView view = text(value, 12, true);
+        view.setPadding(0, 0, 0, dp(4));
         return view;
     }
 
@@ -362,19 +396,9 @@ public class MainActivity extends Activity {
         EditText editText = new EditText(this);
         editText.setSingleLine(true);
         editText.setHint(hint);
-        editText.setTextSize(15);
-        editText.setPadding(dp(12), 0, dp(12), 0);
+        editText.setTextSize(14);
+        editText.setPadding(dp(10), 0, dp(10), 0);
         return editText;
-    }
-
-    private RadioButton radio(String label, int id) {
-        RadioButton radio = new RadioButton(this);
-        radio.setText(label);
-        radio.setId(id);
-        radio.setTextSize(15);
-        radio.setGravity(Gravity.CENTER_VERTICAL);
-        radio.setPadding(0, dp(3), 0, dp(3));
-        return radio;
     }
 
     private Button button(String label) {
@@ -385,9 +409,26 @@ public class MainActivity extends Activity {
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         );
-        lp.setMargins(0, 0, 0, dp(10));
+        lp.setMargins(0, 0, 0, dp(8));
         button.setLayoutParams(lp);
         return button;
+    }
+
+    private LinearLayout row() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        return row;
+    }
+
+    private LinearLayout.LayoutParams weightedButtonParams(int weight) {
+        return new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, weight);
+    }
+
+    private View spaceHorizontal(int dp) {
+        View view = new View(this);
+        view.setLayoutParams(new LinearLayout.LayoutParams(dp(dp), 1));
+        return view;
     }
 
     private TextView text(String value, int sp, boolean bold) {

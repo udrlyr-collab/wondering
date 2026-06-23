@@ -11,6 +11,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 
@@ -40,10 +41,19 @@ public class LocationShareService extends Service {
     private FusedLocationProviderClient fusedLocation;
     private LocationCallback callback;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final Handler uploadHandler = new Handler(Looper.getMainLooper());
+    private final Runnable periodicUpload = new Runnable() {
+        @Override
+        public void run() {
+            uploadLatestLocation();
+        }
+    };
     private boolean hasLast;
     private double lastLat;
     private double lastLng;
     private float distanceM;
+    private Location lastKnownLocation;
+    private volatile boolean uploadInProgress;
 
     @Override
     public void onCreate() {
@@ -53,7 +63,7 @@ public class LocationShareService extends Service {
         distanceM = prefs.getFloat(SharePrefs.KEY_DISTANCE_M, 0f);
         markServiceRunning("Service starting");
         createChannel();
-        startForeground(NOTIFICATION_ID, notification("위치 공유 준비 중"));
+        startForeground(NOTIFICATION_ID, notification("Location sharing ready"));
         startLocationUpdates();
     }
 
@@ -69,6 +79,7 @@ public class LocationShareService extends Service {
 
     @Override
     public void onDestroy() {
+        uploadHandler.removeCallbacks(periodicUpload);
         if (callback != null) fusedLocation.removeLocationUpdates(callback);
         if (prefs != null && !prefs.getBoolean(SharePrefs.KEY_ENABLED, false)) {
             ShareStateUploader.uploadAsync(this, "sharing_off", distanceM);
@@ -91,9 +102,7 @@ public class LocationShareService extends Service {
             return;
         }
 
-        long intervalMs = SharePrefs.safeRefreshMs(
-            prefs.getLong(SharePrefs.KEY_REFRESH_MS, SharePrefs.DEFAULT_REFRESH_MS)
-        );
+        long intervalMs = currentIntervalMs();
         int priority = intervalMs >= 60000L
             ? Priority.PRIORITY_BALANCED_POWER_ACCURACY
             : Priority.PRIORITY_HIGH_ACCURACY;
@@ -115,7 +124,8 @@ public class LocationShareService extends Service {
         };
 
         fusedLocation.requestLocationUpdates(request, callback, Looper.getMainLooper());
-        updateUploadStatus(false, "Waiting for location", -1, false, 0L, System.currentTimeMillis() + intervalMs);
+        updateUploadStatus(false, "Waiting for location", -1, false, 0L, System.currentTimeMillis());
+        scheduleNextUpload(0L);
     }
 
     private boolean hasLocationPermission() {
@@ -125,11 +135,14 @@ public class LocationShareService extends Service {
 
     private void handleLocation(Location location) {
         if (!prefs.getBoolean(SharePrefs.KEY_ENABLED, false)) return;
+        boolean hadLocation = lastKnownLocation != null;
         updateDistance(location);
+        lastKnownLocation = new Location(location);
         NotificationManager nm = getSystemService(NotificationManager.class);
-        nm.notify(NOTIFICATION_ID, notification("위치 전송 중 · " + Math.round(distanceM) + "m"));
-        updateUploadStatus(true, "Sending to server", -1, false, 0L, System.currentTimeMillis() + currentIntervalMs());
-        executor.execute(() -> upload(location));
+        nm.notify(NOTIFICATION_ID, notification("Location ready - " + Math.round(distanceM) + "m"));
+        if (!hadLocation && !uploadInProgress) {
+            scheduleNextUpload(0L);
+        }
     }
 
     private void updateDistance(Location location) {
@@ -191,8 +204,58 @@ public class LocationShareService extends Service {
         } finally {
             if (conn != null) conn.disconnect();
             UploadHistoryStore.recordLocation(this, timestamp, location, distanceM, httpStatus, success, message);
-            updateUploadStatus(false, success ? "Last upload OK" : message, httpStatus, success, timestamp, System.currentTimeMillis() + currentIntervalMs());
+            long nextUploadAt = System.currentTimeMillis() + currentIntervalMs();
+            updateUploadStatus(false, success ? "Last upload OK" : message, httpStatus, success, timestamp, nextUploadAt);
+            uploadInProgress = false;
+            if (prefs.getBoolean(SharePrefs.KEY_ENABLED, false)) {
+                uploadHandler.post(() -> scheduleNextUpload(currentIntervalMs()));
+            }
         }
+    }
+
+    @SuppressWarnings("MissingPermission")
+    private void uploadLatestLocation() {
+        if (!prefs.getBoolean(SharePrefs.KEY_ENABLED, false)) return;
+        if (uploadInProgress) {
+            scheduleNextUpload(1000L);
+            return;
+        }
+
+        Location location = lastKnownLocation;
+        if (location != null) {
+            sendLocation(new Location(location));
+            return;
+        }
+
+        long intervalMs = currentIntervalMs();
+        updateUploadStatus(false, "Waiting for location", -1, false, 0L, System.currentTimeMillis() + intervalMs);
+        fusedLocation.getLastLocation()
+            .addOnSuccessListener(lastLocation -> {
+                if (lastLocation != null) {
+                    handleLocation(lastLocation);
+                    sendLocation(new Location(lastLocation));
+                } else {
+                    updateUploadStatus(false, "No location yet", -1, false, 0L, System.currentTimeMillis() + currentIntervalMs());
+                    scheduleNextUpload(currentIntervalMs());
+                }
+            })
+            .addOnFailureListener(error -> {
+                updateUploadStatus(false, error.getClass().getSimpleName(), -1, false, 0L, System.currentTimeMillis() + currentIntervalMs());
+                scheduleNextUpload(currentIntervalMs());
+            });
+    }
+
+    private void sendLocation(Location location) {
+        uploadInProgress = true;
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        nm.notify(NOTIFICATION_ID, notification("Uploading - " + Math.round(distanceM) + "m"));
+        updateUploadStatus(true, "Sending to server", -1, false, 0L, System.currentTimeMillis() + currentIntervalMs());
+        executor.execute(() -> upload(location));
+    }
+
+    private void scheduleNextUpload(long delayMs) {
+        uploadHandler.removeCallbacks(periodicUpload);
+        uploadHandler.postDelayed(periodicUpload, Math.max(0L, delayMs));
     }
 
     private long currentIntervalMs() {

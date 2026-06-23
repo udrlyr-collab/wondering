@@ -119,7 +119,7 @@ final class UploadHistoryStore {
         String code = httpStatus > 0 ? " HTTP " + httpStatus : "";
 
         StringBuilder builder = new StringBuilder();
-        builder.append(time).append(" · ").append(status).append(code).append(" · ").append(type);
+        builder.append(time).append(" | ").append(status).append(code).append(" | ").append(type);
 
         if (item.has("latitude") && item.has("longitude")) {
             builder
@@ -128,11 +128,11 @@ final class UploadHistoryStore {
         }
 
         if (!item.isNull("accuracyMeters")) {
-            builder.append(" · +/-").append(Math.round(item.optDouble("accuracyMeters"))).append("m");
+            builder.append(" | +/-").append(Math.round(item.optDouble("accuracyMeters"))).append("m");
         }
 
         if (item.has("distanceMeters")) {
-            builder.append(" · ").append(Math.round(item.optDouble("distanceMeters"))).append("m");
+            builder.append(" | ").append(Math.round(item.optDouble("distanceMeters"))).append("m");
         }
 
         String message = item.optString("message", "");
