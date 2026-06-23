@@ -462,11 +462,11 @@ async function handleApi(req, res, url) {
 
   if (req.method === "POST" && url.pathname === "/api/admin/login") {
     if (!adminPin) {
-      sendJson(res, 503, { error: "admin pin is not configured" });
+      sendJson(res, 503, { error: "admin password is not configured" });
       return;
     }
     if (isPinLimited(req)) {
-      sendJson(res, 429, { error: "too many pin attempts" });
+      sendJson(res, 429, { error: "too many password attempts" });
       return;
     }
     try {
@@ -475,7 +475,7 @@ async function handleApi(req, res, url) {
       const pin = typeof payload.pin === "string" ? payload.pin.trim() : "";
       if (!timingSafeEqualString(pin, adminPin)) {
         registerPinFailure(req);
-        sendJson(res, 401, { error: "invalid pin" });
+        sendJson(res, 401, { error: "invalid password" });
         return;
       }
       const session = createAdminSession();

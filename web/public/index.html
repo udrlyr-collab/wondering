@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -12,12 +12,12 @@
     <main class="dashboard">
       <div class="map-container">
         <div id="map"></div>
-        <div class="map-status-card" aria-label="3D 지도 상태">
+        <div class="map-status-card" aria-label="3D map status">
           <span>3D GPS TRACE</span>
-          <strong id="mapInstruction">위치 수신 대기</strong>
-          <small id="mapSubStatus">원본 좌표 저장 · 표시 경로 보정</small>
+          <strong id="mapInstruction">Waiting for location</strong>
+          <small id="mapSubStatus">Raw GPS saved · Display route smoothed</small>
         </div>
-        <button id="locateCurrentButton" class="locate-control" type="button" aria-label="현재 위치로 이동" title="현재 위치로 이동" disabled>
+        <button id="locateCurrentButton" class="locate-control" type="button" aria-label="Focus current location" title="Focus current location" disabled>
           <span class="locate-control-icon" aria-hidden="true"></span>
         </button>
       </div>
@@ -66,7 +66,7 @@
         <div class="admin-grid">
           <div class="admin-section">
             <span>Viewer settings</span>
-            <p class="admin-section-note">wondering.kr 공개 화면의 새로고침, 표시할 기록 수, 오류 GPS 점 표시를 조정합니다.</p>
+            <p class="admin-section-note">Controls the public viewer refresh rate, route record limit, and muted invalid GPS points.</p>
             <select id="publicPollSelect">
               <option value="5000">Refresh 5s</option>
               <option value="10000" selected>Refresh 10s</option>
@@ -81,7 +81,7 @@
           </div>
           <div class="admin-section">
             <span>Route tools</span>
-            <p class="admin-section-note">관리자 화면에서 볼 날짜와 관리자 화면의 새로고침 간격을 정합니다.</p>
+            <p class="admin-section-note">Sets the route date and admin map refresh interval.</p>
             <input id="dateInput" type="date" />
             <select id="pollSelect">
               <option value="5000">Admin 5s</option>
@@ -91,7 +91,7 @@
           </div>
           <div class="admin-section admin-section-wide">
             <span>Upload token</span>
-            <p class="admin-section-note">Android 앱이 위치를 업로드할 때 쓰는 토큰입니다. Generate는 새 후보를 만들고, Rotate token은 그 값을 서버에 적용합니다.</p>
+            <p class="admin-section-note">Token used by the Android uploader. Generate creates a candidate; Rotate token activates it on the server.</p>
             <input id="newTokenInput" class="token-input" type="text" autocomplete="off" spellcheck="false" placeholder="Upload token" />
             <button id="copyTokenButton" type="button">Copy</button>
             <button id="generateTokenButton" type="button">Generate</button>
@@ -109,9 +109,9 @@
       <section id="pinLock" class="pin-lock" hidden>
         <form id="pinForm" class="pin-card">
           <span>Admin access</span>
-          <h2>비밀번호</h2>
-          <p class="pin-note">입력한 비밀번호가 화면에 그대로 표시됩니다.</p>
-          <input id="pinInput" type="text" inputmode="numeric" autocomplete="off" placeholder="비밀번호" aria-label="Admin password" />
+          <h2>ENTER PASSWORD</h2>
+          <p class="pin-note">The password remains visible while you type.</p>
+          <input id="pinInput" type="text" inputmode="numeric" autocomplete="off" placeholder="Password" aria-label="Admin password" />
           <button id="pinSubmitButton" type="submit">Unlock</button>
           <p id="pinFeedback" class="admin-feedback pin-feedback" aria-live="polite"></p>
         </form>

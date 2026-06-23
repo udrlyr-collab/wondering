@@ -311,14 +311,14 @@ async function verifyAdminSession() {
   const token = sessionStorage.getItem(adminSessionStorageKey) || "";
   if (!token) {
     setAdminUnlocked(false);
-    pinMessage("비밀번호를 입력하세요.");
+    pinMessage("Enter password.");
     return;
   }
 
   try {
     const res = await fetch("/api/admin/session", { headers: headers() });
     if (res.status === 401) {
-      lockAdmin("비밀번호 세션이 만료되었습니다.");
+      lockAdmin("Password session expired.");
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -328,7 +328,7 @@ async function verifyAdminSession() {
     adminMessage("Admin unlocked.");
     loadUploadHistory();
   } catch {
-    lockAdmin("비밀번호 확인에 실패했습니다.");
+    lockAdmin("Password verification failed.");
   }
 }
 
@@ -337,23 +337,23 @@ async function loginAdmin(event) {
   if (!isAdminMode) return;
   const pin = (pinInput?.value || "").trim();
   if (!pin) {
-    pinMessage("비밀번호를 입력하세요.", "error");
+    pinMessage("Enter password.", "error");
     return;
   }
 
   try {
-    pinMessage("비밀번호 확인 중...");
+    pinMessage("Checking password...");
     const res = await fetch("/api/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pin }),
     });
     if (res.status === 401) {
-      pinMessage("비밀번호가 틀렸습니다. 다시 확인하세요.", "error");
+      pinMessage("Incorrect password. Try again.", "error");
       return;
     }
     if (res.status === 429) {
-      pinMessage("비밀번호 시도 횟수가 너무 많습니다. 잠시 후 다시 시도하세요.", "error");
+      pinMessage("Too many password attempts. Try again later.", "error");
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -366,7 +366,7 @@ async function loginAdmin(event) {
     loadLocations({ keepViewport: true });
     loadUploadHistory();
   } catch {
-    pinMessage("비밀번호 로그인 요청에 실패했습니다.", "error");
+    pinMessage("Password login request failed.", "error");
   }
 }
 
@@ -395,7 +395,7 @@ async function saveAdminSettings() {
       body: JSON.stringify(settings),
     });
     if (res.status === 401) {
-      lockAdmin("비밀번호 세션이 만료되었습니다.");
+      lockAdmin("Password session expired.");
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -450,7 +450,7 @@ async function rotateUploadToken() {
       body: JSON.stringify({ token: nextToken }),
     });
     if (res.status === 401) {
-      lockAdmin("비밀번호 세션이 만료되었습니다.");
+      lockAdmin("Password session expired.");
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -687,7 +687,7 @@ async function loadUploadHistory() {
   try {
     const res = await fetch("/api/admin/upload-history?limit=80", { headers: headers() });
     if (res.status === 401) {
-      lockAdmin("비밀번호 세션이 만료되었습니다.");
+      lockAdmin("Password session expired.");
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1311,7 +1311,7 @@ function updateFreshness(latest) {
   if (latest.raw_status === "sharing_off") {
     setOperationalStatus("OFF", false);
     setLocationSharingIndicator(false);
-    mapInstructionEl.textContent = "위치 공유 꺼짐";
+    mapInstructionEl.textContent = "Location sharing off";
     mapSubStatusEl.textContent = `${latest.deviceName || "Android"} · ${fmtClock(latest.timestamp)}`;
     return;
   }
@@ -1320,7 +1320,7 @@ function updateFreshness(latest) {
   if (isStale) {
     setOperationalStatus("OFFLINE", false);
     setLocationSharingIndicator(false);
-    mapInstructionEl.textContent = "새 위치 수신 대기 중";
+    mapInstructionEl.textContent = "Waiting for new location";
     mapSubStatusEl.textContent = `${latest.deviceName || "Android"} · ${fmtClock(latest.timestamp)}`;
     return;
   }
@@ -1328,14 +1328,14 @@ function updateFreshness(latest) {
   if (latest.raw_status === "low_accuracy") {
     setOperationalStatus("GPS WEAK", false);
     setLocationSharingIndicator(true);
-    mapInstructionEl.textContent = "GPS 정확도 낮음";
+    mapInstructionEl.textContent = "GPS accuracy weak";
     mapSubStatusEl.textContent = `${latest.deviceName || "Android"} · ${fmtClock(latest.timestamp)}`;
     return;
   }
 
   setOperationalStatus("LIVE", true);
   setLocationSharingIndicator(true);
-  mapInstructionEl.textContent = "실시간 위치 추적 중";
+  mapInstructionEl.textContent = "Live location tracking";
   mapSubStatusEl.textContent = `${latest.deviceName || "Android"} · ${fmtClock(latest.timestamp)}`;
 }
 
@@ -1349,8 +1349,8 @@ function render(records, options = {}) {
     setLocateButtonEnabled(false);
     setOperationalStatus("WAITING", false);
     setLocationSharingIndicator(false);
-    mapInstructionEl.textContent = "위치 수신 대기";
-    mapSubStatusEl.textContent = "원본 좌표 저장 · 표시 경로 보정";
+    mapInstructionEl.textContent = "Waiting for location";
+    mapSubStatusEl.textContent = "Raw GPS saved · Display route smoothed";
     lastSeenEl.textContent = "--:--:--";
     coordsEl.textContent = "- / -";
     distanceEl.textContent = fmtMovement(0, 0);
@@ -1401,8 +1401,8 @@ async function loadLocations(options = {}) {
     const res = await fetch(`/api/locations?${params.toString()}`, { headers: headers() });
     if (res.status === 401) {
       setOperationalStatus("TOKEN REQ", false);
-      mapInstructionEl.textContent = "토큰 필요";
-      mapSubStatusEl.textContent = "관리자 토큰을 저장하세요";
+      mapInstructionEl.textContent = "Token required";
+      mapSubStatusEl.textContent = "Save the admin token";
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1410,8 +1410,8 @@ async function loadLocations(options = {}) {
     render(data.records || [], options);
   } catch {
     setOperationalStatus("ERROR", false);
-    mapInstructionEl.textContent = "서버 연결 실패";
-    mapSubStatusEl.textContent = "API 응답을 확인하세요";
+    mapInstructionEl.textContent = "Server connection failed";
+    mapSubStatusEl.textContent = "Check the API response";
   }
 }
 
