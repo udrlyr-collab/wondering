@@ -741,10 +741,11 @@ body.is-viewer #status {
 }
 
 .currentMarker.is-disabled::after {
+  inset: -6px;
   border-color: #757d78;
   animation: none;
-  opacity: 0.38;
-  transform: scale(1.45);
+  opacity: 0.42;
+  transform: scale(1);
 }
 
 @keyframes markerPulse {
